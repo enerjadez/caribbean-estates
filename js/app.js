@@ -5,7 +5,7 @@ import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards
 import { pullBoard, pushBoard } from "./cloud.js";
 
 const PIN = "0000";
-const view = { page: "home", gameId: null, group: "All", query: "", voter: null };
+const view = { page: "home", gameId: null, group: "All", query: "", voter: null, reading: null };
 const drafts = { games: {}, spirit: null, pose: {} };
 let state = loadState();
 let base = sharedBoard(state);
@@ -119,6 +119,71 @@ function orderedTeams(cup, spice) {
   return [...teams].sort((a, b) => (cup[b.id] - cup[a.id]) || (spice[b.id] - spice[a.id]) || a.name.localeCompare(b.name));
 }
 
+function votesFor(date, playerId) {
+  const raw = state.votes?.[date]?.[playerId];
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.filter((id) => gameById(id));
+}
+
+function votePoll(date) {
+  const rows = new Map();
+  for (const player of players()) {
+    for (const id of votesFor(date, player.id)) {
+      const row = rows.get(id) || { id, name: gameById(id).name, count: 0, names: [] };
+      row.count += 1;
+      row.names.push(player.name);
+      rows.set(id, row);
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+const VOTE_LIMIT = 3;
+
+function fillVoteDialog(gameId) {
+  const game = gameById(gameId);
+  const dialog = document.querySelector("#vote-dialog");
+  if (!game || !dialog) return;
+  view.reading = gameId;
+  document.querySelector("#vote-dialog-group").textContent = game.group;
+  document.querySelector("#vote-dialog-title").textContent = game.name;
+  document.querySelector("#vote-dialog-about").textContent = game.about || game.blurb;
+  document.querySelector("#vote-dialog-how").textContent = game.how;
+  const status = document.querySelector("#vote-dialog-status");
+  const button = document.querySelector("#vote-toggle");
+  const mine = view.voter ? votesFor(todayKey(), view.voter) : [];
+  const picked = mine.includes(gameId);
+  button.textContent = picked ? "Take my vote off" : "Vote to play this";
+  if (!view.voter) status.textContent = "Tap your name on the page first.";
+  else if (picked) status.textContent = "This is one of your three.";
+  else if (mine.length >= VOTE_LIMIT) status.textContent = "Three games is the lot. Take one off to swap.";
+  else status.textContent = `${mine.length} of ${VOTE_LIMIT} picked.`;
+}
+
+function castVote(gameId) {
+  const status = document.querySelector("#vote-dialog-status");
+  if (!view.voter) {
+    if (status) status.textContent = "Tap your name on the page first.";
+    return;
+  }
+  const date = todayKey();
+  const mine = votesFor(date, view.voter);
+  const picked = mine.includes(gameId);
+  if (!picked && mine.length >= VOTE_LIMIT) {
+    if (status) status.textContent = "Three games is the lot. Take one off to swap.";
+    return;
+  }
+  const next = picked ? mine.filter((id) => id !== gameId) : [...mine, gameId];
+  const day = { ...(state.votes[date] || {}) };
+  if (next.length) day[view.voter] = next;
+  else delete day[view.voter];
+  state.votes[date] = day;
+  saveState(state);
+  publish();
+  render();
+  if (document.querySelector("#vote-dialog")?.open) fillVoteDialog(gameId);
+}
+
 function homeHtml() {
   const date = todayKey();
   const winner = state.word.winners?.[date];
@@ -164,23 +229,36 @@ function homeHtml() {
         </article>
       </div>`;
   }).join("");
-  const todayVotes = state.votes?.[date] || {};
-  const chosen = view.voter ? todayVotes[view.voter] : "";
-  const voteGroups = groups.filter((group) => group !== "All").map((group) => {
-    const options = games.filter((game) => game.group === group).map((game) => `<option value="${game.id}" ${game.id === chosen ? "selected" : ""}>${esc(game.name)}</option>`).join("");
-    return `<optgroup label="${esc(group)}">${options}</optgroup>`;
+  const mine = view.voter ? votesFor(date, view.voter) : [];
+  const poll = votePoll(date);
+  const top = poll[0]?.count || 1;
+  const voteGrid = groups.filter((group) => group !== "All").map((group) => {
+    const cards = games.filter((game) => game.group === group).map((game) => {
+      const picked = mine.includes(game.id);
+      const count = poll.find((row) => row.id === game.id)?.count || 0;
+      return `<button type="button" class="vote-card${picked ? " is-mine" : ""}" data-read="${game.id}">
+        <b>${esc(game.name)}</b>
+        <span>${esc(game.blurb)}</span>
+        <i>${picked ? "In your vote" : "Read it"}${count ? ` · ${count}` : ""}</i>
+      </button>`;
+    }).join("");
+    return `<h3>${esc(group)}</h3><div class="vote-cards">${cards}</div>`;
   }).join("");
-  const counts = {};
-  for (const gameId of Object.values(todayVotes)) counts[gameId] = (counts[gameId] || 0) + 1;
-  const tally = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const tallyHtml = tally.length
-    ? `<ul class="tally">${tally.map(([id, count]) => `<li><span>${esc(gameById(id)?.name || id)}</span><b>${count}</b></li>`).join("")}</ul>`
-    : `<p class="hint">No votes yet. The loudest idea can start.</p>`;
+  const pollHtml = poll.length
+    ? `<ol class="poll">${poll.map((row) => `<li>
+        <div class="poll-top"><span>${esc(row.name)}</span><b>${row.count}</b></div>
+        <p>${esc(row.names.join(", "))}</p>
+        <span class="poll-track"><i style="--w:${Math.round((row.count / top) * 100)}"></i></span>
+      </li>`).join("")}</ol>`
+    : `<p class="hint">No votes yet. Open a game and say you want it.</p>`;
   const voters = teams.map((team) => `
     <div class="team-voters">
       <p>${esc(team.name)}</p>
       <div class="voter-row">
-        ${team.players.map((player) => `<button class="voter${view.voter === player.id ? " on" : ""}" type="button" data-voter="${player.id}" aria-pressed="${view.voter === player.id}" style="--c:${team.colour};--on:${team.ink}">${esc(player.name)}${todayVotes[player.id] ? " · in" : ""}</button>`).join("")}
+        ${team.players.map((player) => {
+          const count = votesFor(date, player.id).length;
+          return `<button class="voter${view.voter === player.id ? " on" : ""}" type="button" data-voter="${player.id}" aria-pressed="${view.voter === player.id}" style="--c:${team.colour};--on:${team.ink}">${esc(player.name)}${count ? ` · ${count}` : ""}</button>`;
+        }).join("")}
       </div>
     </div>`).join("");
   return `
@@ -220,17 +298,12 @@ function homeHtml() {
     </section>
     <section class="council" id="vote" aria-labelledby="vote-title">
       <h2 id="vote-title" class="section-title">What shall we play</h2>
-      <p class="hint">${esc(prettyDate(date))}. Tap your name, then pick a game. You can change it. No captain code.</p>
+      <p class="hint">${esc(prettyDate(date))}. Tap your name. Open a game, read how it works, then vote to play it this weekend. Up to three. No captain code.</p>
       ${voters}
-      <div class="field">
-        <label for="vote-game">The game</label>
-        <select id="vote-game" name="game">
-          <option value="" ${chosen ? "" : "selected"}>Choose a game</option>
-          ${voteGroups}
-        </select>
-      </div>
-      <p class="hint" id="vote-hint" role="status"></p>
-      ${tallyHtml}
+      <p class="hint" id="vote-hint" role="status">${view.voter ? "" : "Tap your name first."}</p>
+      <div class="vote-grid">${voteGrid}</div>
+      <h3 id="fav-title">Favourites</h3>
+      <div aria-labelledby="fav-title">${pollHtml}</div>
     </section>
     <details class="panel house"${houseOpen ? " open" : ""}>
       <summary>The house book</summary>
@@ -299,6 +372,7 @@ function gameHtml(id) {
   return `
     <button class="ghost back" type="button" data-tab="games">All games</button>
     <h2 id="game-title">${esc(game.name)}</h2>
+    <p class="lede">${esc(game.about || game.blurb)}</p>
     <p class="rules">${esc(game.how)}</p>
     <p class="hint">${esc(sense)}</p>
     <form id="score-form" aria-labelledby="game-title">
@@ -675,7 +749,7 @@ function applyFilters() {
   document.querySelectorAll("[data-game-row]").forEach((row) => {
     const game = gameById(row.dataset.gameRow);
     const groupOk = view.group === "All" || game.group === view.group;
-    const textOk = !query || `${game.name} ${game.blurb}`.toLowerCase().includes(query);
+    const textOk = !query || `${game.name} ${game.blurb} ${game.about || ""}`.toLowerCase().includes(query);
     row.hidden = !(groupOk && textOk);
     if (!row.hidden) shown += 1;
   });
@@ -849,12 +923,23 @@ document.addEventListener("click", (event) => {
     openCrest(crest.dataset.crest);
     return;
   }
+  const read = event.target.closest("[data-read]");
+  if (read && view.page === "home") {
+    fillVoteDialog(read.dataset.read);
+    document.querySelector("#vote-dialog")?.showModal();
+    return;
+  }
   const voter = event.target.closest("[data-voter]");
   if (voter && view.page === "home") {
     view.voter = voter.dataset.voter;
     render();
     document.querySelector(`[data-voter="${CSS.escape(view.voter)}"]`)?.focus();
+    if (document.querySelector("#vote-dialog")?.open && view.reading) fillVoteDialog(view.reading);
   }
+});
+
+document.querySelector("#vote-toggle")?.addEventListener("click", () => {
+  if (view.reading) castVote(view.reading);
 });
 
 viewRoot.addEventListener("input", (event) => {
@@ -987,23 +1072,6 @@ viewRoot.addEventListener("submit", async (event) => {
 });
 
 viewRoot.addEventListener("change", async (event) => {
-  if (event.target.id === "vote-game") {
-    const hint = document.querySelector("#vote-hint");
-    if (!view.voter) {
-      if (hint) hint.textContent = "Tap your name first.";
-      event.target.value = "";
-      return;
-    }
-    const gameId = event.target.value;
-    if (!gameId) return;
-    const date = todayKey();
-    state.votes[date] = { ...(state.votes[date] || {}) };
-    state.votes[date][view.voter] = gameId;
-    saveState(state);
-    publish();
-    render();
-    return;
-  }
   if (event.target.id === "import-file") {
     const file = event.target.files?.[0];
     event.target.value = "";

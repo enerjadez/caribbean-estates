@@ -646,6 +646,94 @@ body.at-home .wrap {
   border-bottom: 1px solid var(--line);
 }
 
+.vote-grid h3 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+}
+
+.vote-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+}
+
+.vote-card {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.vote-card b {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.vote-card span,
+.vote-card i {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.vote-card.is-mine {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+#fav-title {
+  margin: 22px 0 8px;
+  font-size: 28px;
+}
+
+.poll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.poll-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+}
+
+.poll-top b {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+}
+
+.poll p {
+  margin: 2px 0 6px;
+  color: var(--muted);
+}
+
+.poll-track {
+  display: block;
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.poll-track i {
+  display: block;
+  height: 100%;
+  width: calc(var(--w) * 1%);
+  border-radius: inherit;
+  background: var(--gold);
+}
+
 .house summary {
   cursor: pointer;
   font-family: Fraunces, Georgia, serif;

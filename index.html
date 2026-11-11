@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=7">
-  <link rel="stylesheet" href="css/home.css?v=10">
+  <link rel="stylesheet" href="css/app.css?v=11">
+  <link rel="stylesheet" href="css/home.css?v=11">
 </head>
 <body>
   <div class="wrap">
@@ -56,6 +56,20 @@
     </div>
   </dialog>
 
+  <dialog id="vote-dialog" aria-labelledby="vote-dialog-title" closedby="any">
+    <p id="vote-dialog-group" class="kicker"></p>
+    <h2 id="vote-dialog-title"></h2>
+    <p id="vote-dialog-about"></p>
+    <p id="vote-dialog-how" class="hint"></p>
+    <p id="vote-dialog-status" role="status"></p>
+    <div class="actions">
+      <button class="gold" type="button" id="vote-toggle">Vote to play this</button>
+      <form method="dialog">
+        <button class="ghost" value="close">Close</button>
+      </form>
+    </div>
+  </dialog>
+
   <dialog id="import-dialog" aria-labelledby="import-title">
     <h2 id="import-title">Replace the shared board?</h2>
     <p class="hint">Every phone on this link will show this file. Photos stay on this phone.</p>
@@ -67,6 +81,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=10"></script>
+  <script type="module" src="js/app.js?v=11"></script>
 </body>
 </html>

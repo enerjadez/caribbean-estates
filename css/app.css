@@ -204,6 +204,17 @@ dialog[open] {
   padding: 18px;
 }
 
+#vote-dialog[open] {
+  width: min(560px, calc(100% - 24px));
+  max-height: min(720px, calc(100dvh - 32px));
+  overflow: auto;
+}
+
+#vote-dialog-about {
+  line-height: 1.5;
+  margin: 8px 0;
+}
+
 dialog:modal, dialog::backdrop { overscroll-behavior: contain; }
 
 dialog::backdrop {
