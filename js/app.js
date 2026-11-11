@@ -1,14 +1,21 @@
 import { teams, notes, poses, bounties, games, groups, players, teamById, gameById } from "./house.js";
 import { wordForDate } from "./words.js";
 import { rankEntries, formatPoints } from "./score.js";
-import { loadState, saveState, emptyState } from "./store.js";
+import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js";
+import { pullBoard, pushBoard } from "./cloud.js";
 
 const PIN = "0000";
-const view = { page: "home", gameId: null, group: "All", query: "" };
+const view = { page: "home", gameId: null, group: "All", query: "", voter: null };
 const drafts = { games: {}, spirit: null, pose: {} };
 let state = loadState();
+let base = sharedBoard(state);
 let captainWait = null;
 let pendingImport = null;
+let cupStill = false;
+let houseOpen = false;
+let painted = false;
+let publishing = false;
+let chain = Promise.resolve();
 
 const viewRoot = document.querySelector("#view");
 const pinDialog = document.querySelector("#pin-dialog");
@@ -86,21 +93,21 @@ function spiceTotals() {
   return totals;
 }
 
-function bars(totals) {
-  const max = Math.max(1, ...teams.map((team) => totals[team.id] || 0));
-  return teams.map((team) => {
-    const value = totals[team.id] || 0;
-    const width = Math.round((value / max) * 100);
-    return `<div class="bar-row"><span>${esc(team.name)}</span><div class="bar" role="img" aria-label="${esc(team.name)} ${formatPoints(value)}"><i style="width:${width}%;background:${team.colour}"></i></div><b>${formatPoints(value)}</b></div>`;
-  }).join("");
-}
-
 function teamOptions(selected) {
   return teams.map((team) => `<option value="${team.id}" ${team.id === selected ? "selected" : ""}>${esc(team.name)}</option>`).join("");
 }
 
 function playerOptions() {
   return players().map((player) => `<option value="${player.id}">${esc(player.name)} · ${esc(player.teamName)}</option>`).join("");
+}
+
+function prettyDate(key) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function orderedTeams(cup, spice) {
+  return [...teams].sort((a, b) => (cup[b.id] - cup[a.id]) || (spice[b.id] - spice[a.id]) || a.name.localeCompare(b.name));
 }
 
 function homeHtml() {
@@ -110,44 +117,119 @@ function homeHtml() {
   const openBounty = bounties.find((bounty) => teams.some((team) => !state.bounties?.[bounty.id]?.[team.id]?.confirmed)) || bounties[0];
   const spirit = drafts.spirit || { ...(state.spirit || {}) };
   drafts.spirit = spirit;
+  const cup = cupTotals();
+  const spice = spiceTotals();
+  const ordered = orderedTeams(cup, spice);
+  const bestCup = cup[ordered[0].id];
+  const bestSpice = spice[ordered[0].id];
+  const holders = ordered.filter((team) => cup[team.id] === bestCup && spice[team.id] === bestSpice);
+  const maxCup = Math.max(0, ...teams.map((team) => cup[team.id]));
+  let leader = "The cup is empty. The first game fills it.";
+  if (bestCup > 0 && holders.length === 1) leader = `${holders[0].name} holds the cup.`;
+  if (bestCup > 0 && holders.length > 1) leader = `${holders.map((team) => team.name).join(" and ")} share the cup.`;
+  const liquids = teams.map((team) => {
+    const height = maxCup === 0 ? 0 : Math.round((cup[team.id] / maxCup) * 100);
+    return `<i class="liquid" style="--h:${height}%;--liquid:${team.colour}"></i>`;
+  }).join("");
+  const legend = teams.map((team) => `<li><i class="swatch" style="background:${team.colour}"></i>${esc(team.name)} ${formatPoints(cup[team.id])}</li>`).join("");
+  const cards = ordered.map((team) => {
+    const holding = bestCup > 0 && holders.some((holder) => holder.id === team.id);
+    const place = bestCup === 0 ? "—" : String(ordered.findIndex((item) => cup[item.id] === cup[team.id] && spice[item.id] === spice[team.id]) + 1);
+    const ribbon = !holding ? "" : holders.length > 1 ? "Shares the cup" : "Holds the cup";
+    return `
+      <article class="crest${holding ? " is-holding" : ""}" style="--c:${team.colour};--ink:${team.ink}">
+        <img src="${team.crest}" alt="${esc(team.name)} medallion" width="1024" height="1024" loading="lazy">
+        <hgroup>
+          <p class="place">${place}</p>
+          <h3>${esc(team.name)}</h3>
+          ${ribbon ? `<p class="ribbon">${ribbon}</p>` : ""}
+        </hgroup>
+        <div>
+          <p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>
+          <ol class="roster">${team.players.map((player) => `<li>${esc(player.name)}</li>`).join("")}</ol>
+        </div>
+      </article>`;
+  }).join("");
+  const todayVotes = state.votes?.[date] || {};
+  const chosen = view.voter ? todayVotes[view.voter] : "";
+  const voteGroups = groups.filter((group) => group !== "All").map((group) => {
+    const options = games.filter((game) => game.group === group).map((game) => `<option value="${game.id}" ${game.id === chosen ? "selected" : ""}>${esc(game.name)}</option>`).join("");
+    return `<optgroup label="${esc(group)}">${options}</optgroup>`;
+  }).join("");
+  const counts = {};
+  for (const gameId of Object.values(todayVotes)) counts[gameId] = (counts[gameId] || 0) + 1;
+  const tally = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const tallyHtml = tally.length
+    ? `<ul class="tally">${tally.map(([id, count]) => `<li><span>${esc(gameById(id)?.name || id)}</span><b>${count}</b></li>`).join("")}</ul>`
+    : `<p class="hint">No votes yet. The loudest idea can start.</p>`;
+  const voters = teams.map((team) => `
+    <div class="team-voters">
+      <p>${esc(team.name)}</p>
+      <div class="voter-row">
+        ${team.players.map((player) => `<button class="voter${view.voter === player.id ? " on" : ""}" type="button" data-voter="${player.id}" aria-pressed="${view.voter === player.id}" style="--c:${team.colour};--on:${team.ink}">${esc(player.name)}${todayVotes[player.id] ? " · in" : ""}</button>`).join("")}
+      </div>
+    </div>`).join("");
   return `
-    <section class="panel" aria-labelledby="cup-title">
-      <h2 id="cup-title">Cup</h2>
-      <p class="hint">Games and the daily word. Sample numbers are gone. This phone starts at zero.</p>
-      ${bars(cupTotals())}
-    </section>
-    <section class="panel" aria-labelledby="spice-title">
-      <h2 id="spice-title">Spice</h2>
-      <p class="hint">Poses and photo bounties. Spice stays off the cup, and breaks a tie.</p>
-      ${bars(spiceTotals())}
-    </section>
-    <section class="panel" aria-labelledby="open-title">
-      <h2 id="open-title">Still open today</h2>
-      <div class="glimpse">
-        <button class="tile" type="button" data-tab="quests"><b>Daily word</b><span>${winner ? `${esc(winner.name)} got it` : "No winner yet"}</span></button>
-        <button class="tile" type="button" data-tab="quests"><b>${esc(pose.name)}</b><span>${esc(pose.seated)}</span></button>
-        <button class="tile" type="button" data-tab="quests"><b>${esc(openBounty.name)}</b><span>Photo bounty · 2 spice</span></button>
+    <section class="hero${cupStill ? " is-still" : ""}">
+      <img class="hero-photo" src="assets/veranda.jpg" alt="" width="1280" height="720" fetchpriority="high">
+      <div class="hero-veil">
+        <p class="kicker">Port Edward · ${esc(prettyDate(date))}</p>
+        <h2>The Cup</h2>
+        <p class="leader-line">${esc(leader)}</p>
+        <p class="live-note">One link. Every phone sees this cup.</p>
+        <div class="cup-scene">
+          <div class="motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <button type="button" class="ghost" id="cup-pause">${cupStill ? "Turn the cup" : "Pause the cup"}</button>
+          <div class="cup-rig" aria-hidden="true">
+            <div class="bowl"><div class="liquids">${liquids}</div></div>
+            <div class="stem"></div>
+            <div class="foot"></div>
+          </div>
+        </div>
+        <ul class="cup-legend">${legend}</ul>
       </div>
     </section>
-    <section class="panel">
-      <h2>The house</h2>
+    <h2 id="teams-title" class="section-title">The teams</h2>
+    <section class="crest-grid" aria-labelledby="teams-title">${cards}</section>
+    <h2 id="open-title" class="section-title">Today</h2>
+    <section class="lanterns" aria-labelledby="open-title">
+      <button class="lantern" type="button" data-tab="quests"><b>Daily word</b><span>${winner ? `${esc(winner.name)} got it` : "Still a secret"}</span></button>
+      <button class="lantern" type="button" data-tab="quests"><b>${esc(pose.name)}</b><span>${esc(pose.seated)}</span></button>
+      <button class="lantern" type="button" data-tab="quests"><b>${esc(openBounty.name)}</b><span>Photo bounty · 2 spice</span></button>
+    </section>
+    <section class="council" id="vote" aria-labelledby="vote-title">
+      <h2 id="vote-title" class="section-title">What shall we play</h2>
+      <p class="hint">${esc(prettyDate(date))}. Tap your name, then pick a game. You can change it. No captain code.</p>
+      ${voters}
+      <div class="field">
+        <label for="vote-game">The game</label>
+        <select id="vote-game" name="game">
+          <option value="" ${chosen ? "" : "selected"}>Choose a game</option>
+          ${voteGroups}
+        </select>
+      </div>
+      <p class="hint" id="vote-hint" role="status"></p>
+      ${tallyHtml}
+    </section>
+    <details class="panel house"${houseOpen ? " open" : ""}>
+      <summary>The house book</summary>
       <ul class="notes">${notes.map((note) => `<li>${esc(note)}</li>`).join("")}</ul>
-      <p class="hint">Scores live on this phone. Export a file before you switch devices.</p>
+      <p class="hint">Spice stays off the cup and breaks a tie. Photos stay on the phone that took them. Export a backup any time.</p>
       <div class="actions">
         <button class="gold" type="button" id="export-board">Export board</button>
         <label class="ghost" style="display:inline-flex;align-items:center;padding:0 16px;cursor:pointer">Import board
           <input id="import-file" type="file" accept="application/json" hidden>
         </label>
       </div>
-    </section>
-    <form class="panel" id="spirit-form" aria-labelledby="spirit-title">
-      <h2 id="spirit-title">Spirit bonus</h2>
-      <p class="hint">Optional. 0 to 3 cup points at the end, for looking after each other.</p>
-      <div class="team-grid">
-        ${teams.map((team) => `<div class="field"><label for="spirit-${team.id}">${esc(team.name)}</label><input id="spirit-${team.id}" name="${team.id}" inputmode="numeric" maxlength="1" data-spirit="${team.id}" value="${esc(spirit[team.id] ?? "")}"></div>`).join("")}
-      </div>
-      <button class="gold" type="submit">Save spirit</button>
-    </form>`;
+      <form id="spirit-form" aria-labelledby="spirit-title">
+        <h3 id="spirit-title">Spirit bonus</h3>
+        <p class="hint">Optional. 0 to 3 cup points, for looking after each other.</p>
+        <div class="team-grid">
+          ${teams.map((team) => `<div class="field"><label for="spirit-${team.id}">${esc(team.name)}</label><input id="spirit-${team.id}" name="${team.id}" inputmode="numeric" maxlength="1" data-spirit="${team.id}" value="${esc(spirit[team.id] ?? "")}"></div>`).join("")}
+        </div>
+        <button class="gold" type="submit">Save spirit</button>
+      </form>
+    </details>`;
 }
 
 function gamesHtml() {
@@ -280,19 +362,167 @@ function bountyCard(bounty) {
     </article>`;
 }
 
+function setSync(message) {
+  const status = document.querySelector("#sync-status");
+  if (status) status.textContent = message;
+}
+
 function render() {
-  captainBtn.textContent = isCaptain() ? "Lock" : "Captain";
-  if (view.page === "home") viewRoot.innerHTML = homeHtml();
-  else if (view.page === "games") viewRoot.innerHTML = gamesHtml();
-  else if (view.page === "quests") viewRoot.innerHTML = questsHtml();
-  else viewRoot.innerHTML = gameHtml(view.gameId);
-  const current = view.page === "game" ? "games" : view.page;
-  document.querySelectorAll("[data-tab]").forEach((button) => {
-    const on = button.dataset.tab === current;
-    button.classList.toggle("on", on);
-    button.setAttribute("aria-current", on ? "page" : "false");
+  const paint = () => {
+    captainBtn.textContent = isCaptain() ? "Lock" : "Captain";
+    document.body.classList.toggle("at-home", view.page === "home");
+    if (view.page === "home") viewRoot.innerHTML = homeHtml();
+    else if (view.page === "games") viewRoot.innerHTML = gamesHtml();
+    else if (view.page === "quests") viewRoot.innerHTML = questsHtml();
+    else viewRoot.innerHTML = gameHtml(view.gameId);
+    const current = view.page === "game" ? "games" : view.page;
+    document.querySelectorAll("nav [data-tab]").forEach((button) => {
+      const on = button.dataset.tab === current;
+      button.classList.toggle("on", on);
+      button.setAttribute("aria-current", on ? "page" : "false");
+    });
+    if (view.page === "games") applyFilters();
+    if (view.page === "home") bindHome();
+  };
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (painted && !reduce && document.startViewTransition) {
+    try {
+      document.startViewTransition(paint);
+      return;
+    } catch {
+      paint();
+      return;
+    }
+  }
+  paint();
+  painted = true;
+}
+
+function bindHome() {
+  const hero = document.querySelector(".hero");
+  const button = document.querySelector("#cup-pause");
+  button?.addEventListener("click", () => {
+    cupStill = !cupStill;
+    hero?.classList.toggle("is-still", cupStill);
+    button.textContent = cupStill ? "Turn the cup" : "Pause the cup";
   });
-  if (view.page === "games") applyFilters();
+  document.querySelector(".house")?.addEventListener("toggle", (event) => {
+    houseOpen = event.currentTarget.open;
+  });
+  const fine = window.matchMedia("(pointer: fine)").matches;
+  const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+  const grid = document.querySelector(".crest-grid");
+  if (!fine || !motion || !grid) return;
+  grid.addEventListener("pointermove", (event) => {
+    const card = event.target.closest(".crest");
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const px = (event.clientX - rect.left) / rect.width - 0.5;
+    const py = (event.clientY - rect.top) / rect.height - 0.5;
+    card.style.setProperty("--ry", `${(px * 14).toFixed(2)}deg`);
+    card.style.setProperty("--rx", `${(-py * 10).toFixed(2)}deg`);
+  });
+  grid.addEventListener("pointerleave", () => {
+    grid.querySelectorAll(".crest").forEach((card) => {
+      card.style.removeProperty("--ry");
+      card.style.removeProperty("--rx");
+    });
+  });
+}
+
+function publish(replace = false) {
+  const job = chain.then(() => writeThrough(replace));
+  chain = job.catch(() => false);
+  return job;
+}
+
+async function writeThrough(replace) {
+  publishing = true;
+  try {
+    let remote;
+    try {
+      remote = await pullBoard();
+    } catch {
+      setSync("Saved on this phone. The shared link did not answer.");
+      return false;
+    }
+    const before = JSON.stringify(sharedBoard(state));
+    const local = JSON.parse(before);
+    const merged = replace ? local : mergeBoards(remote, local, base);
+    merged.revision = (Number(remote.revision) || 0) + 1;
+    merged.updatedAt = new Date().toISOString();
+    try {
+      await pushBoard(merged);
+    } catch {
+      setSync("Saved on this phone. The shared link did not update.");
+      return false;
+    }
+    if (JSON.stringify(sharedBoard(state)) !== before) return true;
+    applyShared(state, merged);
+    base = sharedBoard(state);
+    saveState(state);
+    setSync("Live for every phone on this link.");
+    return true;
+  } finally {
+    publishing = false;
+  }
+}
+
+async function refresh() {
+  if (publishing || document.hidden) return;
+  let remote;
+  try {
+    remote = await pullBoard();
+  } catch {
+    return;
+  }
+  if ((Number(remote.revision) || 0) <= (Number(state.revision) || 0)) return;
+  if (JSON.stringify(sharedBoard(state)) !== JSON.stringify(base)) return;
+  applyShared(state, remote);
+  base = sharedBoard(state);
+  saveState(state);
+  setSync("Live for every phone on this link.");
+  const active = document.activeElement;
+  const typing = active && viewRoot.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName);
+  if (!typing) render();
+}
+
+async function boot() {
+  render();
+  setSync("Opening the shared board…");
+  try {
+    const remote = await pullBoard();
+    const remoteRev = Number(remote.revision) || 0;
+    const localRev = Number(state.revision) || 0;
+    const localHas = Object.keys(state.games || {}).length || (state.guesses || []).length || Object.keys(state.votes || {}).length;
+    if (remoteRev > localRev && localHas && !state.updatedAt) {
+      applyShared(state, mergeBoards(remote, sharedBoard(state), remote));
+      base = remote;
+      saveState(state);
+      setSync("This phone had a private copy. A captain save shares it.");
+      render();
+    } else if (remoteRev > localRev || (remoteRev === localRev && remote.updatedAt && remote.updatedAt !== state.updatedAt)) {
+      applyShared(state, remote);
+      base = sharedBoard(state);
+      saveState(state);
+      setSync("Live for every phone on this link.");
+      render();
+    } else if (localRev > remoteRev) {
+      base = remote;
+      setSync("This phone is ahead. A captain save shares it.");
+    } else {
+      base = sharedBoard(state);
+      setSync("Live for every phone on this link.");
+    }
+  } catch {
+    setSync("The shared link is quiet. Showing this phone.");
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refresh();
+  });
+  setInterval(() => {
+    if (!document.hidden) refresh();
+  }, 15000);
 }
 
 function applyFilters() {
@@ -418,6 +648,7 @@ importDialog.addEventListener("close", () => {
     drafts.pose = {};
     saveState(state);
     render();
+    publish(true);
   }
   pendingImport = null;
   importDialog.returnValue = "";
@@ -442,6 +673,13 @@ document.addEventListener("click", (event) => {
   if (group) {
     view.group = group.dataset.group;
     render();
+    return;
+  }
+  const voter = event.target.closest("[data-voter]");
+  if (voter && view.page === "home") {
+    view.voter = voter.dataset.voter;
+    render();
+    document.querySelector(`[data-voter="${CSS.escape(view.voter)}"]`)?.focus();
   }
 });
 
@@ -479,7 +717,9 @@ viewRoot.addEventListener("submit", async (event) => {
     state.games[view.gameId] = { ...drafts.games[view.gameId] };
     saveState(state);
     const status = document.querySelector("#save-status");
-    if (status) status.textContent = "Saved on this phone.";
+    if (status) status.textContent = "Saving to the shared link…";
+    const saved = await publish();
+    if (status) status.textContent = saved ? "Saved. Every phone on this link can see it." : "Saved on this phone. The shared link did not update.";
     return;
   }
   if (form.id === "spirit-form") {
@@ -493,6 +733,7 @@ viewRoot.addEventListener("submit", async (event) => {
     state.spirit = next;
     drafts.spirit = { ...next };
     saveState(state);
+    publish();
     render();
     return;
   }
@@ -510,6 +751,7 @@ viewRoot.addEventListener("submit", async (event) => {
     state.guesses.push({ date, playerId: player.id, name: player.name, teamId: player.teamId, text, hint: hintText, at: Date.now() });
     if (text === word) state.word.winners[date] = { playerId: player.id, name: player.name, teamId: player.teamId };
     saveState(state);
+    publish();
     if (hint && text !== word) {
       hint.textContent = hintText;
       form.querySelector("#guess").value = "";
@@ -531,6 +773,7 @@ viewRoot.addEventListener("submit", async (event) => {
     state.word.overrides[date] = word;
     delete state.word.winners[date];
     saveState(state);
+    publish();
     render();
     return;
   }
@@ -547,6 +790,7 @@ viewRoot.addEventListener("submit", async (event) => {
     }
     state.pose[date] = next;
     saveState(state);
+    publish();
     render();
     return;
   }
@@ -563,11 +807,29 @@ viewRoot.addEventListener("submit", async (event) => {
     if (cell.confirmed) return;
     cell.confirmed = true;
     saveState(state);
+    publish();
     render();
   }
 });
 
 viewRoot.addEventListener("change", async (event) => {
+  if (event.target.id === "vote-game") {
+    const hint = document.querySelector("#vote-hint");
+    if (!view.voter) {
+      if (hint) hint.textContent = "Tap your name first.";
+      event.target.value = "";
+      return;
+    }
+    const gameId = event.target.value;
+    if (!gameId) return;
+    const date = todayKey();
+    state.votes[date] = { ...(state.votes[date] || {}) };
+    state.votes[date][view.voter] = gameId;
+    saveState(state);
+    publish();
+    render();
+    return;
+  }
   if (event.target.id === "import-file") {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -614,8 +876,9 @@ viewRoot.addEventListener("click", async (event) => {
     drafts.games[view.gameId] = {};
     state.games[view.gameId] = {};
     saveState(state);
+    publish();
     render();
   }
 });
 
-render();
+boot();

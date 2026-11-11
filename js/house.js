@@ -3,6 +3,7 @@ export const teams = [
     id: "jamaica",
     name: "Jamaica",
     colour: "#e2b43a",
+    crest: "assets/jamaica.jpg",
     ink: "#1a1404",
     players: [
       { id: "mike", name: "Mike" },
@@ -16,6 +17,7 @@ export const teams = [
     id: "barbados",
     name: "Barbados",
     colour: "#3d7ec4",
+    crest: "assets/barbados.jpg",
     ink: "#f4f8ff",
     players: [
       { id: "lee", name: "Lee" },
@@ -29,6 +31,7 @@ export const teams = [
     id: "trinidad",
     name: "Trinidad",
     colour: "#d4534c",
+    crest: "assets/trinidad.jpg",
     ink: "#fff6f5",
     players: [
       { id: "seshni", name: "Seshni" },
@@ -42,6 +45,7 @@ export const teams = [
     id: "bahamas",
     name: "Bahamas",
     colour: "#1f9a90",
+    crest: "assets/bahamas.jpg",
     ink: "#04211e",
     players: [
       { id: "premie", name: "Premie" },

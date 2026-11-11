@@ -9,7 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=2">
+  <link rel="stylesheet" href="css/app.css?v=5">
+  <link rel="stylesheet" href="css/home.css?v=6">
 </head>
 <body>
   <div class="wrap">
@@ -17,6 +18,7 @@
       <h1>Caribbean Estates<small>Port Edward · 23–26 Dec</small></h1>
       <button class="ghost" id="captain-btn" type="button">Captain</button>
     </header>
+    <p id="sync-status" class="sync" role="status">Opening the shared board…</p>
     <nav class="nav" aria-label="Sections">
       <button type="button" data-tab="home">Home</button>
       <button type="button" data-tab="games">Games</button>
@@ -42,8 +44,8 @@
   </dialog>
 
   <dialog id="import-dialog" aria-labelledby="import-title">
-    <h2 id="import-title">Replace this phone's board?</h2>
-    <p class="hint">The scores and photos on this phone will be replaced by the file.</p>
+    <h2 id="import-title">Replace the shared board?</h2>
+    <p class="hint">Every phone on this link will show this file. Photos stay on this phone.</p>
     <form method="dialog">
       <div class="actions">
         <button class="ghost" value="cancel" autofocus>Keep this board</button>
@@ -52,6 +54,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=2"></script>
+  <script type="module" src="js/app.js?v=5"></script>
 </body>
 </html>
