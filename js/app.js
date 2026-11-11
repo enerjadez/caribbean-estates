@@ -284,14 +284,8 @@ function homeHtml() {
           </div>
         </div>
         <ul class="cup-legend">${legend}</ul>
+        <p class="sky" id="sky"><span class="sky-status" role="status">Coast…</span></p>
       </div>
-    </section>
-    <section class="sky" id="sky" aria-labelledby="sky-title">
-      <div class="sky-head">
-        <h2 id="sky-title" class="section-title">The coast</h2>
-        <p class="sky-place">Caribbean Estates</p>
-      </div>
-      <p class="sky-status" role="status">Reading the coast…</p>
     </section>
     <h2 id="teams-title" class="section-title">The teams</h2>
     <section class="crest-grid" aria-labelledby="teams-title">${cards}</section>
@@ -574,23 +568,6 @@ function skyWord(code) {
   return "Sky";
 }
 
-function skyGlyph(code) {
-  const kind = code <= 1 ? "sun" : code === 2 ? "mix" : code === 3 || code === 45 || code === 48 ? "cloud" : code >= 95 ? "storm" : "rain";
-  const marks = {
-    sun: `<circle cx="16" cy="16" r="5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 4v3M16 25v3M4 16h3M25 16h3M7.5 7.5l2 2M22.5 22.5l2 2M24.5 7.5l-2 2M9.5 22.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
-    mix: `<circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v2M6 8l1.4 1.4M4 14h2M8 20h14a5 5 0 0 0 0-10 6 6 0 0 0-11-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
-    cloud: `<path d="M10 24h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 24z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>`,
-    rain: `<path d="M10 18h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 18z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 22l-1 4M17 22l-1 4M22 22l-1 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
-    storm: `<path d="M10 18h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 18z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 20l-2 5h4l-2 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>`
-  };
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 32 32");
-  svg.setAttribute("aria-hidden", "true");
-  svg.classList.add("sky-glyph");
-  svg.insertAdjacentHTML("afterbegin", marks[kind]);
-  return svg;
-}
-
 function loadSky() {
   if (!skyPromise) {
     skyPromise = fetch(SKY_URL, { priority: "low" }).then((response) => {
@@ -606,54 +583,28 @@ function loadSky() {
 
 function drawSky(root, data) {
   const today = coastTodayIso();
-  const now = document.createElement("p");
+  const now = document.createElement("span");
   now.className = "sky-now";
-  const temp = document.createElement("b");
-  temp.textContent = `${Math.round(data.current.temperature_2m)}°`;
-  const meta = document.createElement("p");
-  meta.className = "sky-meta";
+  const temp = Math.round(data.current.temperature_2m);
   const wind = Math.round(data.current.wind_speed_10m);
-  meta.textContent = `${skyWord(data.current.weather_code)} · ${wind} km/h`;
-  now.append(skyGlyph(data.current.weather_code), temp, meta);
-  const days = document.createElement("ol");
+  now.textContent = `Coast ${temp}° ${skyWord(data.current.weather_code)} · ${wind} km/h`;
+  const days = document.createElement("span");
   days.className = "sky-days";
-  data.daily.time.forEach((iso, index) => {
-    const item = document.createElement("li");
-    if (iso === today) item.className = "is-today";
-    const when = document.createElement("span");
-    when.className = "sky-when";
-    when.textContent = iso === today ? "Today" : coastWeekday(iso);
-    const word = document.createElement("span");
-    word.className = "sky-word";
-    const code = data.daily.weather_code[index];
-    word.textContent = skyWord(code);
-    const high = document.createElement("b");
-    high.textContent = `${Math.round(data.daily.temperature_2m_max[index])}°`;
-    const low = document.createElement("span");
-    low.className = "sky-low";
-    low.textContent = `${Math.round(data.daily.temperature_2m_min[index])}°`;
-    item.append(when, skyGlyph(code), word, high, low);
+  days.textContent = data.daily.time.map((iso, index) => {
+    const label = iso === today ? "Today" : coastWeekday(iso);
+    const high = Math.round(data.daily.temperature_2m_max[index]);
+    const low = Math.round(data.daily.temperature_2m_min[index]);
     const chance = data.daily.precipitation_probability_max[index];
-    if (chance > 0) {
-      const wet = document.createElement("span");
-      wet.className = "sky-wet";
-      wet.textContent = `${chance}%`;
-      item.append(wet);
-    }
-    days.append(item);
-  });
-  const credit = document.createElement("p");
+    const wet = chance >= 40 ? ` ${chance}%` : "";
+    const range = iso === today ? `${high}°/${low}°` : `${high}°`;
+    return `${label} ${range}${wet}`;
+  }).join(" · ");
+  const credit = document.createElement("a");
   credit.className = "sky-credit";
-  const link = document.createElement("a");
-  link.href = "https://open-meteo.com/";
-  link.rel = "noreferrer";
-  link.textContent = "Open-Meteo";
-  credit.append("Forecast · ", link);
-  root.querySelector(".sky-status")?.remove();
-  root.querySelector(".sky-now")?.remove();
-  root.querySelector(".sky-days")?.remove();
-  root.querySelector(".sky-credit")?.remove();
-  root.append(now, days, credit);
+  credit.href = "https://open-meteo.com/";
+  credit.rel = "noreferrer";
+  credit.textContent = "Open-Meteo";
+  root.replaceChildren(now, days, credit);
 }
 
 async function paintSky() {
@@ -665,7 +616,7 @@ async function paintSky() {
     drawSky(root, data);
   } catch {
     const status = root.isConnected ? root.querySelector(".sky-status") : null;
-    if (status) status.textContent = "The coast forecast did not load.";
+    if (status) status.textContent = "Coast forecast did not load.";
   }
 }
 
