@@ -614,13 +614,6 @@ body.at-home .wrap {
   background: var(--gold);
 }
 
-.house summary {
-  cursor: pointer;
-  font-family: Fraunces, Georgia, serif;
-  font-size: 26px;
-  min-height: 44px;
-}
-
 @media (max-width: 800px) {
   .crest-grid { grid-template-columns: 1fr 1fr; }
 }

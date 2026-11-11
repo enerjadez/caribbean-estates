@@ -1,4 +1,4 @@
-import { teams, notes, poses, bounties, games, groups, players, teamById, gameById } from "./house.js?v=13";
+import { teams, poses, bounties, games, groups, players, teamById, gameById } from "./house.js?v=13";
 import { wordForDate } from "./words.js";
 import { rankEntries, formatPoints } from "./score.js";
 import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=13";
@@ -11,7 +11,6 @@ let state = loadState();
 let base = sharedBoard(state);
 let captainWait = null;
 let pendingImport = null;
-let houseOpen = false;
 let painted = false;
 let publishing = false;
 let chain = Promise.resolve();
@@ -185,8 +184,6 @@ function castVote(gameId) {
 
 function homeHtml() {
   const date = todayKey();
-  const spirit = drafts.spirit || { ...(state.spirit || {}) };
-  drafts.spirit = spirit;
   const cup = cupTotals();
   const spice = spiceTotals();
   const ordered = orderedTeams(cup, spice);
@@ -295,26 +292,7 @@ function homeHtml() {
       <div class="vote-grid">${voteGrid}</div>
       <h3 id="fav-title">Favourites</h3>
       <div aria-labelledby="fav-title">${pollHtml}</div>
-    </section>
-    <details class="panel house"${houseOpen ? " open" : ""}>
-      <summary>The house book</summary>
-      <ul class="notes">${notes.map((note) => `<li>${esc(note)}</li>`).join("")}</ul>
-      <p class="hint">Spice stays off the cup and breaks a tie. Photos stay on the phone that took them. Export a backup any time.</p>
-      <div class="actions">
-        <button class="gold" type="button" id="export-board">Export board</button>
-        <label class="ghost" style="display:inline-flex;align-items:center;padding:0 16px;cursor:pointer">Import board
-          <input id="import-file" type="file" accept="application/json" hidden>
-        </label>
-      </div>
-      <form id="spirit-form" aria-labelledby="spirit-title">
-        <h3 id="spirit-title">Spirit bonus</h3>
-        <p class="hint">Optional. 0 to 3 cup points, for looking after each other.</p>
-        <div class="team-grid">
-          ${teams.map((team) => `<div class="field"><label for="spirit-${team.id}">${esc(team.name)}</label><input id="spirit-${team.id}" name="${team.id}" inputmode="numeric" maxlength="1" data-spirit="${team.id}" value="${esc(spirit[team.id] ?? "")}"></div>`).join("")}
-        </div>
-        <button class="gold" type="submit">Save spirit</button>
-      </form>
-    </details>`;
+    </section>`;
 }
 
 function gamesHtml() {
@@ -614,9 +592,6 @@ function bindHome() {
     openAwardPick();
   });
   document.querySelector("#award-open")?.addEventListener("click", () => openAwardRecap());
-  document.querySelector(".house")?.addEventListener("toggle", (event) => {
-    houseOpen = event.currentTarget.open;
-  });
   const fine = window.matchMedia("(pointer: fine)").matches;
   const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
   paintSky();
