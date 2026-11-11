@@ -472,30 +472,6 @@ body.at-home .wrap {
   }
 }
 
-.lanterns {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 28px;
-}
-
-.lantern {
-  min-height: 104px;
-  padding: 14px;
-  border-radius: 22px;
-  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
-  background:
-    radial-gradient(120px 70px at 10% 0%, color-mix(in srgb, var(--gold) 42%, transparent), transparent 70%),
-    rgba(255, 255, 255, 0.04);
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.lantern b { font-family: Fraunces, Georgia, serif; font-size: 22px; font-weight: 650; }
-
 .council {
   margin: 0 0 22px;
   padding: 16px;
@@ -647,10 +623,6 @@ body.at-home .wrap {
 
 @media (max-width: 800px) {
   .crest-grid { grid-template-columns: 1fr 1fr; }
-}
-
-@media (max-width: 640px) {
-  .lanterns { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {

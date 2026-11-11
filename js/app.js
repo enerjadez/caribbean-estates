@@ -185,12 +185,6 @@ function castVote(gameId) {
 
 function homeHtml() {
   const date = todayKey();
-  const pose = poseToday();
-  const openBounty = bounties.find((bounty) => teams.some((team) => !state.bounties?.[bounty.id]?.[team.id]?.confirmed)) || bounties[0];
-  const inFeed = bounties.reduce((sum, bounty) => sum + teams.filter((team) => {
-    const cell = state.bounties?.[bounty.id]?.[team.id];
-    return cell?.posted || cell?.confirmed;
-  }).length, 0);
   const spirit = drafts.spirit || { ...(state.spirit || {}) };
   drafts.spirit = spirit;
   const cup = cupTotals();
@@ -293,12 +287,6 @@ function homeHtml() {
       ${award ? `<p>${esc(award.team.name)} takes the Cup Winners 2026 trophy.</p><button type="button" class="gold" id="award-open">See the awards</button>` : `<p class="hint">The captain uses the code to end it.</p>`}
       <button type="button" class="ghost" id="award-end">${award ? "Choose a different winner" : "End the tournament"}</button>
     </div>
-    <h2 id="open-title" class="section-title">Today</h2>
-    <section class="lanterns" aria-labelledby="open-title">
-      <button class="lantern" type="button" data-tab="quests"><b>Photo quests</b><span>${inFeed ? `${inFeed} in the feed` : "The feed is open"}</span></button>
-      <button class="lantern" type="button" data-tab="quests"><b>${esc(pose.name)}</b><span>${esc(pose.seated)}</span></button>
-      <button class="lantern" type="button" data-tab="quests"><b>${esc(openBounty.name)}</b><span>Photo bounty · 2 spice</span></button>
-    </section>
     <section class="council" id="vote" aria-labelledby="vote-title">
       <h2 id="vote-title" class="section-title">What shall we play</h2>
       <p class="hint">${esc(prettyDate(date))}. Tap your name. Open a game, read how it works, then vote to play it this weekend. Up to three. No captain code.</p>
