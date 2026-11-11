@@ -210,15 +210,6 @@ body.at-home .wrap {
   font-weight: 650;
 }
 
-.sky-credit {
-  color: color-mix(in srgb, #f3ecdc 62%, transparent);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-underline-offset: 2px;
-}
-
 .crest-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -630,6 +621,51 @@ body.at-home .wrap {
   .crest {
     transition: transform 180ms ease;
     transform: rotateX(var(--rx, 6deg)) rotateY(var(--ry, -8deg));
+  }
+}
+
+@keyframes hero-arrive {
+  from { opacity: 0; translate: 0 18px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes photo-settle {
+  from { scale: 1.06; }
+  to { scale: 1; }
+}
+
+@keyframes crest-arrive {
+  from { opacity: 0; translate: 0 36px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@media (max-width: 520px) and (prefers-reduced-motion: no-preference) {
+  .hero-photo { animation: photo-settle 3.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+  .hero h2,
+  .prize-note,
+  .cup-rig,
+  .cup-legend,
+  .sky {
+    animation: hero-arrive 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .prize-note { animation-delay: 0.08s; }
+  .cup-rig { animation-delay: 0.16s; }
+  .cup-legend { animation-delay: 0.28s; }
+  .sky { animation-delay: 0.36s; }
+
+  .crest-open img { transition: scale 0.5s cubic-bezier(0.16, 1, 0.3, 1), translate 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+  .crest:active .crest-open img { scale: 1.045; }
+
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .crest-tilt { view-timeline: --crest block; }
+
+    .crest {
+      animation: crest-arrive auto linear both;
+      animation-timeline: --crest;
+      animation-range: entry 0% entry 70%;
+    }
   }
 }
 

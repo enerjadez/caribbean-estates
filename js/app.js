@@ -219,7 +219,7 @@ function homeHtml() {
             ${ribbon ? `<p class="ribbon">${ribbon}</p>` : ""}
           </hgroup>
           <div>
-            <p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>
+            ${cup[team.id] > 0 || spice[team.id] > 0 ? `<p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>` : ""}
             <ol class="roster">${team.players.map((player) => `<li>${esc(player.name)}</li>`).join("")}</ol>
             ${download}
           </div>
@@ -565,12 +565,7 @@ function drawSky(root, data) {
     const range = iso === today ? `${high}°/${low}°` : `${high}°`;
     return `${label} ${range}${wet}`;
   }).join(" · ");
-  const credit = document.createElement("a");
-  credit.className = "sky-credit";
-  credit.href = "https://open-meteo.com/";
-  credit.rel = "noreferrer";
-  credit.textContent = "Open-Meteo";
-  root.replaceChildren(now, days, credit);
+  root.replaceChildren(now, days);
 }
 
 async function paintSky() {
@@ -586,6 +581,33 @@ async function paintSky() {
   }
 }
 
+let crestScroll = null;
+
+function enlivenCards() {
+  if (crestScroll) {
+    window.removeEventListener("scroll", crestScroll);
+    document.removeEventListener("scroll", crestScroll);
+  }
+  crestScroll = null;
+  const phone = window.matchMedia("(max-width: 520px)").matches;
+  const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+  if (!phone || !motion) return;
+  const place = () => {
+    const mid = window.innerHeight * 0.42;
+    for (const card of document.querySelectorAll(".crest")) {
+      const rect = card.getBoundingClientRect();
+      const delta = Math.max(-1, Math.min(1, (rect.top + rect.height * 0.35 - mid) / window.innerHeight));
+      card.style.transform = `rotateX(${(8 - delta * 7).toFixed(2)}deg) rotateY(${(-11 + delta * 5).toFixed(2)}deg)`;
+      const art = card.querySelector("img");
+      if (art) art.style.translate = `0 ${(delta * -16).toFixed(1)}px`;
+    }
+  };
+  crestScroll = () => place();
+  window.addEventListener("scroll", crestScroll, { passive: true });
+  document.addEventListener("scroll", crestScroll, { passive: true });
+  place();
+}
+
 function bindHome() {
   document.querySelector("#award-end")?.addEventListener("click", async () => {
     if (!(await ensureCaptain())) return;
@@ -595,6 +617,7 @@ function bindHome() {
   const fine = window.matchMedia("(pointer: fine)").matches;
   const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
   paintSky();
+  enlivenCards();
   const grid = document.querySelector(".crest-grid");
   if (!fine || !motion || !grid) return;
   grid.addEventListener("pointermove", (event) => {
