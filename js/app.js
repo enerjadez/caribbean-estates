@@ -143,21 +143,23 @@ function homeHtml() {
     const place = bestCup === 0 ? "—" : String(ordered.findIndex((item) => cup[item.id] === cup[team.id] && spice[item.id] === spice[team.id]) + 1);
     const ribbon = !holding ? "" : holders.length > 1 ? "Shares the cup" : "Holds the cup";
     return `
-      <article class="crest${holding ? " is-holding" : ""}" style="--c:${team.colour};--ink:${team.ink}">
-        <button type="button" class="crest-open" data-crest="${team.id}">
-          <img src="${team.crest}" alt="" width="1024" height="1024" loading="lazy">
-          <span class="vh">${esc(team.name)} full screen</span>
-        </button>
-        <hgroup>
-          <p class="place">${place}</p>
-          <h3>${esc(team.name)}</h3>
-          ${ribbon ? `<p class="ribbon">${ribbon}</p>` : ""}
-        </hgroup>
-        <div>
-          <p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>
-          <ol class="roster">${team.players.map((player) => `<li>${esc(player.name)}</li>`).join("")}</ol>
-        </div>
-      </article>`;
+      <div class="crest-tilt">
+        <article class="crest${holding ? " is-holding" : ""}" style="--c:${team.colour};--ink:${team.ink}">
+          <button type="button" class="crest-open" data-crest="${team.id}">
+            <img src="${team.crest}" alt="" width="1024" height="1024" loading="lazy">
+            <span class="vh">${esc(team.name)} full screen</span>
+          </button>
+          <hgroup>
+            <p class="place">${place}</p>
+            <h3>${esc(team.name)}</h3>
+            ${ribbon ? `<p class="ribbon">${ribbon}</p>` : ""}
+          </hgroup>
+          <div>
+            <p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>
+            <ol class="roster">${team.players.map((player) => `<li>${esc(player.name)}</li>`).join("")}</ol>
+          </div>
+        </article>
+      </div>`;
   }).join("");
   const todayVotes = state.votes?.[date] || {};
   const chosen = view.voter ? todayVotes[view.voter] : "";

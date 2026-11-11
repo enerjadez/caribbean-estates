@@ -208,12 +208,18 @@ body.at-home .wrap {
   gap: 16px;
   margin: 0 0 28px;
   padding: 8px;
-  perspective: 1200px;
+}
+
+.crest-tilt {
+  perspective: 900px;
+  display: flex;
+  min-width: 0;
 }
 
 .crest {
   container-type: inline-size;
   display: grid;
+  flex: 1;
   gap: 8px;
   align-content: start;
   padding: 12px;
