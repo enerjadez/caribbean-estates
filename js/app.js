@@ -23,6 +23,12 @@ const pinForm = document.querySelector("#pin-form");
 const pinInput = document.querySelector("#pin");
 const pinError = document.querySelector("#pin-error");
 const importDialog = document.querySelector("#import-dialog");
+const crestDialog = document.querySelector("#crest-dialog");
+const crestArt = document.querySelector("#crest-dialog-art");
+const crestTitle = document.querySelector("#crest-dialog-title");
+const crestPlace = document.querySelector("#crest-dialog-place");
+const crestScore = document.querySelector("#crest-dialog-score");
+const crestRoster = document.querySelector("#crest-dialog-roster");
 const captainBtn = document.querySelector("#captain-btn");
 
 function todayKey() {
@@ -138,7 +144,10 @@ function homeHtml() {
     const ribbon = !holding ? "" : holders.length > 1 ? "Shares the cup" : "Holds the cup";
     return `
       <article class="crest${holding ? " is-holding" : ""}" style="--c:${team.colour};--ink:${team.ink}">
-        <img src="${team.crest}" alt="${esc(team.name)} medallion" width="1024" height="1024" loading="lazy">
+        <button type="button" class="crest-open" data-crest="${team.id}">
+          <img src="${team.crest}" alt="" width="1024" height="1024" loading="lazy">
+          <span class="vh">${esc(team.name)} full screen</span>
+        </button>
         <hgroup>
           <p class="place">${place}</p>
           <h3>${esc(team.name)}</h3>
@@ -622,17 +631,42 @@ pinDialog.addEventListener("close", () => {
   pinDialog.returnValue = "";
 });
 
+function openCrest(teamId) {
+  const team = teamById(teamId);
+  if (!team) return;
+  const cup = cupTotals();
+  const spice = spiceTotals();
+  const ordered = orderedTeams(cup, spice);
+  const bestCup = cup[ordered[0].id];
+  const place = bestCup === 0 ? "—" : String(ordered.findIndex((item) => cup[item.id] === cup[team.id] && spice[item.id] === spice[team.id]) + 1);
+  crestTitle.textContent = team.name;
+  crestPlace.textContent = place;
+  crestScore.textContent = `${formatPoints(cup[team.id])} cup · ${formatPoints(spice[team.id])} spice`;
+  crestArt.src = team.crest;
+  crestArt.alt = `${team.name} medallion`;
+  crestRoster.replaceChildren(...team.players.map((player) => {
+    const item = document.createElement("li");
+    item.textContent = player.name;
+    return item;
+  }));
+  crestDialog.style.setProperty("--c", team.colour);
+  crestDialog.style.setProperty("--ink", team.ink);
+  crestDialog.showModal();
+}
+
 if (!("closedBy" in HTMLDialogElement.prototype)) {
-  let pressedOutside = false;
-  const outside = (event) => {
-    const rect = pinDialog.getBoundingClientRect();
-    return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
-  };
-  pinDialog.addEventListener("pointerdown", (event) => {
-    pressedOutside = outside(event);
-  });
-  pinDialog.addEventListener("pointerup", (event) => {
-    if (pressedOutside && outside(event)) pinDialog.close();
+  document.querySelectorAll('dialog[closedby="any"]').forEach((dialog) => {
+    let pressedOutside = false;
+    const outside = (event) => {
+      const rect = dialog.getBoundingClientRect();
+      return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+    };
+    dialog.addEventListener("pointerdown", (event) => {
+      pressedOutside = outside(event);
+    });
+    dialog.addEventListener("pointerup", (event) => {
+      if (pressedOutside && outside(event)) dialog.close();
+    });
   });
 }
 
@@ -673,6 +707,11 @@ document.addEventListener("click", (event) => {
   if (group) {
     view.group = group.dataset.group;
     render();
+    return;
+  }
+  const crest = event.target.closest("[data-crest]");
+  if (crest) {
+    openCrest(crest.dataset.crest);
     return;
   }
   const voter = event.target.closest("[data-voter]");

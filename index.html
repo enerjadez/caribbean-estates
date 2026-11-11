@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=5">
-  <link rel="stylesheet" href="css/home.css?v=6">
+  <link rel="stylesheet" href="css/app.css?v=7">
+  <link rel="stylesheet" href="css/home.css?v=7">
 </head>
 <body>
   <div class="wrap">
@@ -43,6 +43,19 @@
     </form>
   </dialog>
 
+  <dialog id="crest-dialog" aria-labelledby="crest-dialog-title" closedby="any">
+    <img id="crest-dialog-art" alt="" width="1024" height="1024">
+    <div class="crest-sheet">
+      <p id="crest-dialog-place" class="place"></p>
+      <h2 id="crest-dialog-title"></h2>
+      <p id="crest-dialog-score"></p>
+      <ol id="crest-dialog-roster"></ol>
+      <form method="dialog">
+        <button class="crest-close" value="close" autofocus>Close</button>
+      </form>
+    </div>
+  </dialog>
+
   <dialog id="import-dialog" aria-labelledby="import-title">
     <h2 id="import-title">Replace the shared board?</h2>
     <p class="hint">Every phone on this link will show this file. Photos stay on this phone.</p>
@@ -54,6 +67,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=5"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>
