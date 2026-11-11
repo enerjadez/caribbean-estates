@@ -91,6 +91,15 @@ h3 { font-size: 20px; margin: 0 0 4px; }
 
 .nav button.on { background: var(--gold); color: #1a1404; }
 
+@media (max-width: 800px) {
+  .nav {
+    top: 0;
+    z-index: 5;
+    background: var(--sea);
+    padding-top: max(4px, env(safe-area-inset-top, 0px));
+  }
+}
+
 .panel, .card, .tile {
   background: var(--panel);
   border: 1px solid var(--line);

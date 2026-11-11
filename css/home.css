@@ -709,6 +709,12 @@ body.at-home .wrap {
   }
 }
 
+@media (max-width: 800px) {
+  .crest-tilt { perspective: none; }
+  .crest { transform: none; }
+  .section-title { scroll-margin-top: 72px; }
+}
+
 @keyframes hero-arrive {
   from { opacity: 0; translate: 0 18px; }
   to { opacity: 1; translate: 0 0; }

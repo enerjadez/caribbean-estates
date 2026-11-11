@@ -613,23 +613,12 @@ function enlivenCards() {
     document.removeEventListener("scroll", crestScroll);
   }
   crestScroll = null;
-  const phone = window.matchMedia("(max-width: 520px)").matches;
-  const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
-  if (!phone || !motion) return;
-  const place = () => {
-    const mid = window.innerHeight * 0.42;
-    for (const card of document.querySelectorAll(".crest")) {
-      const rect = card.getBoundingClientRect();
-      const delta = Math.max(-1, Math.min(1, (rect.top + rect.height * 0.35 - mid) / window.innerHeight));
-      card.style.transform = `rotateX(${(14 - delta * 11).toFixed(2)}deg) rotateY(${(-18 + delta * 9).toFixed(2)}deg)`;
-      const art = card.querySelector("img");
-      if (art) art.style.translate = `0 ${(delta * -16).toFixed(1)}px`;
-    }
-  };
-  crestScroll = () => place();
-  window.addEventListener("scroll", crestScroll, { passive: true });
-  document.addEventListener("scroll", crestScroll, { passive: true });
-  place();
+  if (!window.matchMedia("(max-width: 800px)").matches) return;
+  for (const card of document.querySelectorAll(".crest")) {
+    card.style.transform = "";
+    const art = card.querySelector("img");
+    if (art) art.style.translate = "";
+  }
 }
 
 let cupTimer = 0;
