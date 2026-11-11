@@ -14,6 +14,8 @@
 
 html, body { margin: 0; min-height: 100%; }
 
+html { scroll-padding-top: 76px; }
+
 body {
   font-family: Outfit, system-ui, sans-serif;
   color: var(--ink);
@@ -253,6 +255,115 @@ dialog[open] {
 .award-dl:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
+}
+
+.quest-feed { display: grid; gap: 18px; }
+
+.quest-intro h2 { font-size: clamp(40px, 8vw, 64px); line-height: 0.9; margin: 0; text-wrap: balance; }
+
+.quest {
+  container-type: inline-size;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 28%),
+    var(--panel);
+}
+
+.quest header .kicker {
+  margin: 0;
+  color: var(--gold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: Outfit, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quest h3 { margin: 4px 0 0; font-size: clamp(32px, 8cqi, 46px); line-height: 0.95; text-wrap: balance; }
+
+.quest-body { display: grid; gap: 10px; }
+
+.quest-body > p { margin: 0; line-height: 1.45; }
+
+.captures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.captures li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.captures li.is-in {
+  background: var(--c);
+  color: var(--ink);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.quest-shots { display: grid; gap: 12px; }
+
+.quest-shots figure { margin: 0; display: grid; gap: 8px; }
+
+.quest-shots img,
+.quest-shots video {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #071510;
+}
+
+.quest-shots figcaption { display: grid; gap: 2px; }
+
+.quest-shots figcaption b,
+.quest-line b,
+.quest-chat b { font-weight: 700; }
+
+.quest-line { margin: 0; }
+
+.quest-chat {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.quest-chat li {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  line-height: 1.4;
+}
+
+.quest-chat b { color: var(--c, var(--gold)); }
+
+.quest footer { display: grid; gap: 8px; }
+
+.pose-fold summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 26px;
+  text-wrap: balance;
 }
 
 #vote-dialog-about {

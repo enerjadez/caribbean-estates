@@ -1,11 +1,11 @@
-import { teams, notes, poses, bounties, games, groups, players, teamById, gameById } from "./house.js";
+import { teams, notes, poses, bounties, games, groups, players, teamById, gameById } from "./house.js?v=13";
 import { wordForDate } from "./words.js";
 import { rankEntries, formatPoints } from "./score.js";
-import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=12";
+import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=13";
 import { pullBoard, pushBoard } from "./cloud.js";
 
 const PIN = "0000";
-const view = { page: "home", gameId: null, group: "All", query: "", voter: null, reading: null };
+const view = { page: "home", gameId: null, group: "All", query: "", voter: null, reading: null, poster: "" };
 const drafts = { games: {}, spirit: null, pose: {} };
 let state = loadState();
 let base = sharedBoard(state);
@@ -185,9 +185,12 @@ function castVote(gameId) {
 
 function homeHtml() {
   const date = todayKey();
-  const winner = state.word.winners?.[date];
   const pose = poseToday();
   const openBounty = bounties.find((bounty) => teams.some((team) => !state.bounties?.[bounty.id]?.[team.id]?.confirmed)) || bounties[0];
+  const inFeed = bounties.reduce((sum, bounty) => sum + teams.filter((team) => {
+    const cell = state.bounties?.[bounty.id]?.[team.id];
+    return cell?.posted || cell?.confirmed;
+  }).length, 0);
   const spirit = drafts.spirit || { ...(state.spirit || {}) };
   drafts.spirit = spirit;
   const cup = cupTotals();
@@ -298,7 +301,7 @@ function homeHtml() {
     </div>
     <h2 id="open-title" class="section-title">Today</h2>
     <section class="lanterns" aria-labelledby="open-title">
-      <button class="lantern" type="button" data-tab="quests"><b>Daily word</b><span>${winner ? `${esc(winner.name)} got it` : "Still a secret"}</span></button>
+      <button class="lantern" type="button" data-tab="quests"><b>Photo quests</b><span>${inFeed ? `${inFeed} in the feed` : "The feed is open"}</span></button>
       <button class="lantern" type="button" data-tab="quests"><b>${esc(pose.name)}</b><span>${esc(pose.seated)}</span></button>
       <button class="lantern" type="button" data-tab="quests"><b>${esc(openBounty.name)}</b><span>Photo bounty · 2 spice</span></button>
     </section>
@@ -397,41 +400,35 @@ function gameHtml(id) {
 function questsHtml() {
   const date = todayKey();
   const pose = poseToday();
-  const winner = state.word.winners?.[date];
-  const guesses = (state.guesses || []).filter((guess) => guess.date === date);
   if (!drafts.pose[date]) drafts.pose[date] = { ...(state.pose?.[date] || {}) };
   const poseDraft = drafts.pose[date];
   return `
-    <section class="panel" aria-labelledby="word-title">
-      <h2 id="word-title">Daily word</h2>
-      <p class="hint">${winner ? `${esc(winner.name)} hit it. The word was ${esc(secretWord(date))}. Their team takes 4 cup points.` : "One secret word today. The first exact guess puts 4 cup points on that player's team."}</p>
-      ${winner ? "" : `<form id="guess-form" aria-labelledby="word-title">
-        <div class="field"><label for="guesser">Who is guessing</label><select id="guesser" name="player" required>${playerOptions()}</select></div>
-        <div class="field"><label for="guess">Guess</label><input id="guess" name="guess" autocomplete="off" autocapitalize="none" required></div>
-        <button class="gold" type="submit">Send guess</button>
-        <p class="hint" id="guess-hint" role="status"></p>
-      </form>`}
-      ${guesses.map((guess) => `<p class="line"><span>${esc(guess.name)}</span><span>${esc(guess.text)}</span><span>${esc(guess.hint || "")}</span></p>`).join("")}
-      <form id="word-form" aria-labelledby="word-set-title">
-        <h3 id="word-set-title">Set today's word</h3>
-        <div class="field"><label for="override-word">Captain's word</label><input id="override-word" name="word" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
-        <button class="ghost" type="submit">Save word</button>
-      </form>
+    <section class="quest-feed" aria-labelledby="bounty-title">
+      <header class="quest-intro">
+        <h2 id="bounty-title">The feed</h2>
+        <p class="lede">Each quest is a post. Add a photo or a short video, and a line if you want. Other phones see which teams got it, and the chat. The file stays on the phone that took it. Save it from that phone.</p>
+        <div class="field">
+          <label for="quest-as">Posting as</label>
+          <select id="quest-as" name="poster">
+            <option value="">Your name</option>
+            ${players().map((player) => `<option value="${player.id}"${player.id === view.poster ? " selected" : ""}>${esc(player.name)} · ${esc(player.teamName)}</option>`).join("")}
+          </select>
+        </div>
+      </header>
+      ${bounties.map((bounty) => questPost(bounty)).join("")}
     </section>
-    <form class="panel" id="pose-form" aria-labelledby="pose-title">
-      <h2 id="pose-title">${esc(pose.name)}</h2>
-      <p class="hint">Seated swap: ${esc(pose.seated)}. One spice for every 10 clean seconds, up to 3. Captain saves it.</p>
-      <div class="team-grid">
-        ${teams.map((team) => `<div class="field"><label for="pose-${team.id}">${esc(team.name)}, seconds</label><input id="pose-${team.id}" name="${team.id}" inputmode="numeric" data-pose="${team.id}" value="${esc(poseDraft[team.id] ?? "")}"></div>`).join("")}
-      </div>
-      <p id="pose-preview" aria-live="polite">${esc(posePreview(poseDraft))}</p>
-      <button class="gold" type="submit">Save pose</button>
-    </form>
-    <section aria-labelledby="bounty-title">
-      <h2 id="bounty-title">Photo bounties</h2>
-      <p class="lede">Anyone can take the photo. The captain confirms it, once per team, for 2 spice.</p>
-      ${bounties.map((bounty) => bountyCard(bounty)).join("")}
-    </section>`;
+    <details class="panel pose-fold">
+      <summary>Today's pose · ${esc(pose.name)}</summary>
+      <form id="pose-form" aria-labelledby="pose-title">
+        <h2 id="pose-title">${esc(pose.name)}</h2>
+        <p class="hint">Seated swap: ${esc(pose.seated)}. One spice for every 10 clean seconds, up to 3. Captain saves it.</p>
+        <div class="team-grid">
+          ${teams.map((team) => `<div class="field"><label for="pose-${team.id}">${esc(team.name)}, seconds</label><input id="pose-${team.id}" name="${team.id}" inputmode="numeric" data-pose="${team.id}" value="${esc(poseDraft[team.id] ?? "")}"></div>`).join("")}
+        </div>
+        <p id="pose-preview" aria-live="polite">${esc(posePreview(poseDraft))}</p>
+        <button class="gold" type="submit">Save pose</button>
+      </form>
+    </details>`;
 }
 
 function posePreview(draft) {
@@ -441,25 +438,72 @@ function posePreview(draft) {
   }).join(" · ");
 }
 
-function bountyCard(bounty) {
+function teamGot(cell) {
+  return !!(cell?.posted || cell?.confirmed || cell?.photo || cell?.video);
+}
+
+function questPost(bounty) {
   const row = state.bounties?.[bounty.id] || {};
-  const dots = teams.map((team) => {
+  const notes = state.questNotes?.[bounty.id] || [];
+  const chips = teams.map((team) => {
     const cell = row[team.id];
-    const label = cell?.confirmed ? "confirmed" : cell?.photo ? "photo in" : "open";
-    return `<span>${esc(team.name)} ${label}</span>`;
-  }).join(" · ");
-  const shown = teams.map((team) => row[team.id]?.photo).find(Boolean);
+    const got = teamGot(cell);
+    const spice = cell?.confirmed ? " · spice" : "";
+    return `<li class="${got ? "is-in" : ""}" style="--c:${team.colour};--ink:${team.ink}">${esc(team.name)}${spice}</li>`;
+  }).join("");
+  const shots = teams.map((team) => {
+    const cell = row[team.id];
+    if (!cell?.photo && !cell?.video) return "";
+    const fileName = `${team.name} ${bounty.name}`;
+    const caption = cell.caption ? `<span>${esc(cell.caption)}</span>` : "";
+    const media = cell.photo
+      ? `<img src="${cell.photo}" alt="${esc(`${team.name}, ${bounty.name}`)}" width="720" height="540">`
+      : `<p class="hint" data-video-wait>Opening the video…</p><video data-video="${esc(bounty.id)}:${esc(team.id)}" data-name="${esc(fileName)}.mp4" controls playsinline preload="metadata" hidden></video>`;
+    const save = cell.photo
+      ? `<a class="award-dl" href="${cell.photo}" download="${esc(fileName)}.jpg">Save the photo</a>`
+      : `<a class="award-dl" data-save hidden>Save the video</a>`;
+    return `<figure>${media}<figcaption><b>${esc(team.name)}</b>${caption}</figcaption>${save}</figure>`;
+  }).join("");
+  const lines = teams.map((team) => {
+    const cell = row[team.id];
+    if (!cell?.caption || cell.photo || cell.video) return "";
+    return `<p class="quest-line"><b>${esc(team.name)}</b> ${esc(cell.caption)}</p>`;
+  }).join("");
+  const chat = notes.length
+    ? `<ol class="quest-chat">${notes.map((note) => {
+        const team = teamById(note.teamId);
+        return `<li style="--c:${team?.colour || "var(--gold)"}"><b>${esc(note.name)}</b> ${esc(note.text)}</li>`;
+      }).join("")}</ol>`
+    : `<p class="hint">No lines yet.</p>`;
   return `
-    <article class="card">
-      <div class="bounty-head"><h3>${esc(bounty.name)}</h3><span></span><span class="status">2 spice</span></div>
-      <p class="hint">${esc(bounty.detail)}</p>
-      <p class="hint">${dots}</p>
-      ${shown ? `<img class="shot" alt="" src="${shown}">` : ""}
-      <form data-bounty="${bounty.id}">
-        <div class="field"><label for="team-${bounty.id}">Team</label><select id="team-${bounty.id}" name="team">${teamOptions()}</select></div>
-        <div class="field"><label for="file-${bounty.id}">Photo</label><input id="file-${bounty.id}" name="photo" type="file" accept="image/*" capture="environment"></div>
-        <button class="gold" type="submit">Confirm 2 spice</button>
-      </form>
+    <article class="quest">
+      <header>
+        <p class="kicker">2 spice · once a team</p>
+        <h3 id="quest-${bounty.id}">${esc(bounty.name)}</h3>
+      </header>
+      <div class="quest-body">
+        <p>${esc(bounty.detail)}</p>
+        <ul class="captures">${chips}</ul>
+        ${shots ? `<div class="quest-shots">${shots}</div>` : ""}
+        ${lines}
+        ${chat}
+      </div>
+      <footer>
+        <form data-bounty="${bounty.id}" aria-labelledby="quest-${bounty.id}">
+          <div class="field"><label for="team-${bounty.id}">Team</label><select id="team-${bounty.id}" name="team">${teamOptions()}</select></div>
+          <div class="field"><label for="file-${bounty.id}">Photo or video</label><input id="file-${bounty.id}" name="photo" type="file" accept="image/*,video/*"></div>
+          <div class="field"><label for="cap-${bounty.id}">A line about it</label><input id="cap-${bounty.id}" name="caption" maxlength="80" enterkeyhint="done" value="${esc(row[teams[0].id]?.caption || "")}"></div>
+          <p class="hint" id="quest-status-${bounty.id}" role="status"></p>
+          <div class="actions">
+            <button class="gold" type="submit">Add to the feed</button>
+            <button class="ghost" type="button" data-spice="${bounty.id}">Count 2 spice</button>
+          </div>
+        </form>
+        <form data-chat="${bounty.id}" aria-labelledby="quest-${bounty.id}">
+          <div class="field"><label for="chat-${bounty.id}">Chat</label><input id="chat-${bounty.id}" name="text" maxlength="80" enterkeyhint="send" autocomplete="off"></div>
+          <button class="gold" type="submit">Send</button>
+        </form>
+      </footer>
     </article>`;
 }
 
@@ -470,6 +514,8 @@ function setSync(message) {
 
 function render() {
   const paint = () => {
+    for (const url of mediaUrls) URL.revokeObjectURL(url);
+    mediaUrls = [];
     captainBtn.textContent = isCaptain() ? "Lock" : "Captain";
     document.body.classList.toggle("at-home", view.page === "home");
     if (view.page === "home") viewRoot.innerHTML = homeHtml();
@@ -484,6 +530,7 @@ function render() {
     });
     if (view.page === "games") applyFilters();
     if (view.page === "home") bindHome();
+    if (view.page === "quests") hydrateQuestMedia();
     if (document.querySelector("#award-dialog")?.open) fillAwardRecap();
   };
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -802,11 +849,80 @@ function compressPhoto(file) {
   });
 }
 
-async function rememberPhoto(bountyId, teamId, file) {
-  const photo = await compressPhoto(file);
+function openMedia() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("ce-quest-media", 1);
+    request.onupgradeneeded = () => request.result.createObjectStore("files");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function mediaKey(bountyId, teamId) {
+  return `${bountyId}:${teamId}`;
+}
+
+function mediaRequest(mode, key, value) {
+  return openMedia().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction("files", mode);
+    const store = tx.objectStore("files");
+    let request = null;
+    if (value !== undefined) request = store.put(value, key);
+    else if (mode === "readwrite") store.delete(key);
+    else request = store.get(key);
+    tx.oncomplete = () => {
+      db.close();
+      resolve(request?.result);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  }));
+}
+
+let mediaUrls = [];
+
+async function hydrateQuestMedia() {
+  for (const url of mediaUrls) URL.revokeObjectURL(url);
+  mediaUrls = [];
+  const nodes = [...document.querySelectorAll("[data-video]")];
+  if (!nodes.length) return;
+  for (const node of nodes) {
+    if (!node.isConnected) return;
+    const blob = await mediaRequest("readonly", node.dataset.video);
+    if (!blob || !node.isConnected) continue;
+    const url = URL.createObjectURL(blob);
+    mediaUrls.push(url);
+    node.src = url;
+    node.hidden = false;
+    node.previousElementSibling?.remove();
+    const link = node.parentElement?.querySelector("[data-save]");
+    if (link) {
+      link.href = url;
+      link.download = node.dataset.name || "quest.mp4";
+      link.hidden = false;
+    }
+  }
+}
+
+async function rememberFile(bountyId, teamId, file, caption) {
+  const key = mediaKey(bountyId, teamId);
   state.bounties[bountyId] = state.bounties[bountyId] || {};
   const previous = state.bounties[bountyId][teamId] || {};
-  state.bounties[bountyId][teamId] = { ...previous, photo, confirmed: false };
+  const next = { ...previous, posted: true, confirmed: false };
+  if (caption) next.caption = caption;
+  if (file.type.startsWith("video/")) {
+    if (file.size > 12 * 1024 * 1024) throw new Error("big");
+    await mediaRequest("readwrite", key, file);
+    delete next.photo;
+    next.video = true;
+  } else {
+    next.photo = await compressPhoto(file);
+    delete next.video;
+    await mediaRequest("readwrite", key).catch(() => {});
+  }
+  state.bounties[bountyId][teamId] = next;
   try {
     saveState(state);
   } catch {
@@ -1137,18 +1253,42 @@ viewRoot.addEventListener("submit", async (event) => {
   const bountyId = form.dataset.bounty;
   if (bountyId) {
     event.preventDefault();
-    if (!(await ensureCaptain())) return;
-    const teamId = new FormData(form).get("team");
-    const cell = state.bounties?.[bountyId]?.[teamId];
-    if (!cell?.photo) {
-      form.insertAdjacentHTML("beforeend", `<p class="hint">Take the photo first.</p>`);
+    const data = new FormData(form);
+    const teamId = String(data.get("team") || "");
+    const caption = String(data.get("caption") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const status = form.querySelector("[role=status]");
+    state.bounties[bountyId] = state.bounties[bountyId] || {};
+    const cell = state.bounties[bountyId][teamId] || {};
+    if (!cell.photo && !cell.video && !caption) {
+      if (status) status.textContent = "Add a photo, a video, or a line.";
       return;
     }
-    if (cell.confirmed) return;
-    cell.confirmed = true;
+    state.bounties[bountyId][teamId] = { ...cell, posted: true, ...(caption ? { caption } : {}) };
     saveState(state);
     publish();
     render();
+    return;
+  }
+  const chatId = form.dataset.chat;
+  if (chatId) {
+    event.preventDefault();
+    const text = String(new FormData(form).get("text") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const player = players().find((item) => item.id === view.poster);
+    const status = form.querySelector("[role=status]");
+    if (!player) {
+      const note = form.querySelector("[role=status]") || form.insertAdjacentElement("beforeend", Object.assign(document.createElement("p"), { className: "hint", role: "status" }));
+      note.textContent = "Choose your name at the top.";
+      return;
+    }
+    if (!text) return;
+    state.questNotes = state.questNotes || {};
+    const list = state.questNotes[chatId] || [];
+    list.push({ id: `${Date.now()}-${player.id}`, name: player.name, teamId: player.teamId, text, at: Date.now() });
+    state.questNotes[chatId] = list.slice(-12);
+    saveState(state);
+    publish();
+    render();
+    if (status) status.textContent = "";
   }
 });
 
@@ -1167,24 +1307,55 @@ viewRoot.addEventListener("change", async (event) => {
     importDialog.showModal();
     return;
   }
+  if (event.target.id === "quest-as") {
+    view.poster = event.target.value;
+    return;
+  }
+  if (event.target.name === "team" && event.target.form?.dataset.bounty) {
+    const cell = state.bounties?.[event.target.form.dataset.bounty]?.[event.target.value];
+    const input = event.target.form.querySelector("[name=caption]");
+    if (input) input.value = cell?.caption || "";
+    return;
+  }
   if (event.target.type === "file" && event.target.form?.dataset.bounty) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const bountyId = event.target.form.dataset.bounty;
-    const teamId = new FormData(event.target.form).get("team");
+    const form = event.target.form;
+    const bountyId = form.dataset.bounty;
+    const teamId = new FormData(form).get("team");
+    const caption = String(new FormData(form).get("caption") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const status = form.querySelector("[role=status]");
     try {
-      await rememberPhoto(bountyId, teamId, file);
+      await rememberFile(bountyId, teamId, file, caption);
+      publish();
       render();
-    } catch {
-      const note = document.createElement("p");
-      note.className = "hint";
-      note.textContent = "That photo could not be stored on this phone.";
-      event.target.form.append(note);
+    } catch (error) {
+      if (status) status.textContent = error?.message === "big"
+        ? "That video is too long for this phone. Try a shorter one."
+        : "That file could not be stored on this phone.";
     }
   }
 });
 
 viewRoot.addEventListener("click", async (event) => {
+  const spice = event.target.closest("[data-spice]");
+  if (spice) {
+    if (!(await ensureCaptain())) return;
+    const form = spice.form;
+    const bountyId = spice.dataset.spice;
+    const teamId = String(new FormData(form).get("team") || "");
+    const status = form.querySelector("[role=status]");
+    const cell = state.bounties?.[bountyId]?.[teamId];
+    if (!cell?.photo && !cell?.video && !cell?.posted) {
+      if (status) status.textContent = "Add a photo or a video first.";
+      return;
+    }
+    state.bounties[bountyId][teamId] = { ...cell, posted: true, confirmed: true };
+    saveState(state);
+    publish();
+    render();
+    return;
+  }
   if (event.target.id === "export-board") {
     if (!(await ensureCaptain())) return;
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });

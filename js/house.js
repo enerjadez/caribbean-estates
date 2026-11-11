@@ -73,14 +73,17 @@ export const poses = [
 ];
 
 export const bounties = [
-  { id: "blue-bird", name: "Blue bird", detail: "Any blue bird, on purpose." },
-  { id: "sunset", name: "Four colours at sunset", detail: "All four team colours in one frame." },
   { id: "thatha", name: "Thatha laughing", detail: "A real laugh, not a pose he hates." },
+  { id: "cheer", name: "The veranda cheer", detail: "The whole team in one frame. Chairs count. One wave at the camera." },
+  { id: "generations", name: "Oldest and youngest", detail: "The oldest and the youngest on your team, side by side." },
+  { id: "shadow", name: "Shadow animal", detail: "Hands on a wall. Make your team's animal if you can." },
+  { id: "sky", name: "The sky right now", detail: "Point the phone up. Cloud, moon, or just blue." },
+  { id: "blue-bird", name: "Blue bird", detail: "Any blue bird, on purpose." },
+  { id: "sunset", name: "Four colours at sunset", detail: "Gold, blue, red, and teal in one frame." },
   { id: "meal", name: "Meal mid-cook", detail: "The pot, the hands, the steam." },
-  { id: "sea", name: "Feet in the sea", detail: "At least one pair of feet." },
-  { id: "sign", name: "The estate sign", detail: "Caribbean Estates, readable." },
   { id: "shell", name: "A shell with a face", detail: "The face can be generous." },
   { id: "decoration", name: "Christmas, out of place", detail: "A decoration where it does not belong." },
+  { id: "sign", name: "The estate sign", detail: "Caribbean Estates, readable." },
   { id: "pose-photo", name: "Someone mid-pose", detail: "The hold, caught in the act." }
 ];
 
