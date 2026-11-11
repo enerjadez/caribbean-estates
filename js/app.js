@@ -30,6 +30,9 @@ const crestPlace = document.querySelector("#crest-dialog-place");
 const crestScore = document.querySelector("#crest-dialog-score");
 const crestRoster = document.querySelector("#crest-dialog-roster");
 const captainBtn = document.querySelector("#captain-btn");
+const SKY_URL = "https://api.open-meteo.com/v1/forecast?latitude=-31.07645&longitude=30.19613&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Africa%2FJohannesburg&forecast_days=4";
+const SKY_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+let skyPromise = null;
 
 function todayKey() {
   const now = new Date();
@@ -199,6 +202,13 @@ function homeHtml() {
         </div>
         <ul class="cup-legend">${legend}</ul>
       </div>
+    </section>
+    <section class="sky" id="sky" aria-labelledby="sky-title">
+      <div class="sky-head">
+        <h2 id="sky-title" class="section-title">The coast</h2>
+        <p class="sky-place">Caribbean Estates</p>
+      </div>
+      <p class="sky-status" role="status">Reading the coast…</p>
     </section>
     <h2 id="teams-title" class="section-title">The teams</h2>
     <section class="crest-grid" aria-labelledby="teams-title">${cards}</section>
@@ -409,6 +419,128 @@ function render() {
   painted = true;
 }
 
+function coastWeekday(iso) {
+  if (typeof Temporal !== "undefined") return Temporal.PlainDate.from(iso).toLocaleString("en-ZA", { weekday: "short" });
+  const [year, month, day] = iso.split("-").map(Number);
+  const shift = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const adjusted = month < 3 ? year - 1 : year;
+  const index = (adjusted + Math.floor(adjusted / 4) - Math.floor(adjusted / 100) + Math.floor(adjusted / 400) + shift[month - 1] + day) % 7;
+  return SKY_WEEK[index];
+}
+
+function coastTodayIso() {
+  if (typeof Temporal !== "undefined") return Temporal.Now.zonedDateTimeISO("Africa/Johannesburg").toPlainDate().toString();
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Johannesburg", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function skyWord(code) {
+  if (code === 0 || code === 1) return "Clear";
+  if (code === 2) return "Bright";
+  if (code === 3) return "Cloud";
+  if (code === 45 || code === 48) return "Mist";
+  if (code >= 51 && code <= 57) return "Drizzle";
+  if (code >= 61 && code <= 67) return "Rain";
+  if (code >= 71 && code <= 77) return "Cold";
+  if (code >= 80 && code <= 82) return "Showers";
+  if (code >= 95) return "Storm";
+  return "Sky";
+}
+
+function skyGlyph(code) {
+  const kind = code <= 1 ? "sun" : code === 2 ? "mix" : code === 3 || code === 45 || code === 48 ? "cloud" : code >= 95 ? "storm" : "rain";
+  const marks = {
+    sun: `<circle cx="16" cy="16" r="5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 4v3M16 25v3M4 16h3M25 16h3M7.5 7.5l2 2M22.5 22.5l2 2M24.5 7.5l-2 2M9.5 22.5l-2 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
+    mix: `<circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 4v2M6 8l1.4 1.4M4 14h2M8 20h14a5 5 0 0 0 0-10 6 6 0 0 0-11-1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
+    cloud: `<path d="M10 24h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 24z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>`,
+    rain: `<path d="M10 18h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 18z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 22l-1 4M17 22l-1 4M22 22l-1 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>`,
+    storm: `<path d="M10 18h13a5 5 0 0 0 .4-10 7 7 0 0 0-13.2-2A5 5 0 0 0 10 18z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 20l-2 5h4l-2 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>`
+  };
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 32 32");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("sky-glyph");
+  svg.insertAdjacentHTML("afterbegin", marks[kind]);
+  return svg;
+}
+
+function loadSky() {
+  if (!skyPromise) {
+    skyPromise = fetch(SKY_URL, { priority: "low" }).then((response) => {
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    }).catch((error) => {
+      skyPromise = null;
+      throw error;
+    });
+  }
+  return skyPromise;
+}
+
+function drawSky(root, data) {
+  const today = coastTodayIso();
+  const now = document.createElement("p");
+  now.className = "sky-now";
+  const temp = document.createElement("b");
+  temp.textContent = `${Math.round(data.current.temperature_2m)}°`;
+  const meta = document.createElement("p");
+  meta.className = "sky-meta";
+  const wind = Math.round(data.current.wind_speed_10m);
+  meta.textContent = `${skyWord(data.current.weather_code)} · ${wind} km/h`;
+  now.append(skyGlyph(data.current.weather_code), temp, meta);
+  const days = document.createElement("ol");
+  days.className = "sky-days";
+  data.daily.time.forEach((iso, index) => {
+    const item = document.createElement("li");
+    if (iso === today) item.className = "is-today";
+    const when = document.createElement("span");
+    when.className = "sky-when";
+    when.textContent = iso === today ? "Today" : coastWeekday(iso);
+    const word = document.createElement("span");
+    word.className = "sky-word";
+    const code = data.daily.weather_code[index];
+    word.textContent = skyWord(code);
+    const high = document.createElement("b");
+    high.textContent = `${Math.round(data.daily.temperature_2m_max[index])}°`;
+    const low = document.createElement("span");
+    low.className = "sky-low";
+    low.textContent = `${Math.round(data.daily.temperature_2m_min[index])}°`;
+    item.append(when, skyGlyph(code), word, high, low);
+    const chance = data.daily.precipitation_probability_max[index];
+    if (chance > 0) {
+      const wet = document.createElement("span");
+      wet.className = "sky-wet";
+      wet.textContent = `${chance}%`;
+      item.append(wet);
+    }
+    days.append(item);
+  });
+  const credit = document.createElement("p");
+  credit.className = "sky-credit";
+  const link = document.createElement("a");
+  link.href = "https://open-meteo.com/";
+  link.rel = "noreferrer";
+  link.textContent = "Open-Meteo";
+  credit.append("Forecast · ", link);
+  root.querySelector(".sky-status")?.remove();
+  root.querySelector(".sky-now")?.remove();
+  root.querySelector(".sky-days")?.remove();
+  root.querySelector(".sky-credit")?.remove();
+  root.append(now, days, credit);
+}
+
+async function paintSky() {
+  const root = document.querySelector("#sky");
+  if (!root) return;
+  try {
+    const data = await loadSky();
+    if (!root.isConnected) return;
+    drawSky(root, data);
+  } catch {
+    const status = root.isConnected ? root.querySelector(".sky-status") : null;
+    if (status) status.textContent = "The coast forecast did not load.";
+  }
+}
+
 function bindHome() {
   const hero = document.querySelector(".hero");
   const button = document.querySelector("#cup-pause");
@@ -422,6 +554,7 @@ function bindHome() {
   });
   const fine = window.matchMedia("(pointer: fine)").matches;
   const motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+  paintSky();
   const grid = document.querySelector(".crest-grid");
   if (!fine || !motion || !grid) return;
   grid.addEventListener("pointermove", (event) => {

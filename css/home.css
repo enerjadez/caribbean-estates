@@ -202,6 +202,119 @@ body.at-home .wrap {
   font-size: clamp(32px, 5vw, 48px);
 }
 
+.sky {
+  margin: 4px 0 22px;
+  padding: 14px 16px 16px;
+  border-radius: 28px;
+  border: 1px solid color-mix(in srgb, #9fd4e4 35%, transparent);
+  background:
+    radial-gradient(460px 160px at 0% 0%, color-mix(in srgb, #7ec8e3 24%, transparent), transparent 68%),
+    rgba(0, 0, 0, 0.22);
+}
+
+.sky-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.sky-head .section-title { margin: 0; }
+
+.sky-place,
+.sky-credit {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sky-status {
+  margin: 10px 0 0;
+  color: #f3ecdc;
+}
+
+.sky-now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  margin: 8px 0 12px;
+  color: #f7f1df;
+}
+
+.sky-now b {
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(48px, 10vw, 72px);
+  font-weight: 650;
+  line-height: 0.85;
+}
+
+.sky-meta { margin: 0; }
+
+.sky-days {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sky-days li {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.sky-days li.is-today {
+  outline: 1px solid color-mix(in srgb, var(--gold) 70%, transparent);
+  outline-offset: 0;
+}
+
+.sky-when,
+.sky-word,
+.sky-low,
+.sky-wet {
+  font-size: 12px;
+}
+
+.sky-when {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sky-days b {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.sky-low,
+.sky-wet,
+.sky-credit { color: var(--muted); }
+
+.sky-glyph {
+  width: 28px;
+  height: 28px;
+  margin: 2px 0;
+}
+
+.sky-credit {
+  margin-top: 10px;
+  letter-spacing: 0.08em;
+}
+
+.sky-credit a { color: inherit; }
+
 .crest-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
