@@ -204,10 +204,55 @@ dialog[open] {
   padding: 18px;
 }
 
-#vote-dialog[open] {
+#vote-dialog[open],
+#award-dialog[open],
+#award-pick[open] {
   width: min(560px, calc(100% - 24px));
   max-height: min(720px, calc(100dvh - 32px));
   overflow: auto;
+}
+
+.award-picks { display: grid; gap: 8px; margin: 12px 0; }
+
+.award-pick {
+  min-height: 48px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.award-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+
+.award-row p { margin: 0; }
+
+.award-dl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.28);
+  background: #f7f1df;
+  color: #1a1404;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.award-dl:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
 }
 
 #vote-dialog-about {

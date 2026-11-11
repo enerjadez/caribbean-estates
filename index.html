@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=11">
-  <link rel="stylesheet" href="css/home.css?v=11">
+  <link rel="stylesheet" href="css/app.css?v=12">
+  <link rel="stylesheet" href="css/home.css?v=12">
 </head>
 <body>
   <div class="wrap">
@@ -29,7 +29,7 @@
 
   <dialog id="pin-dialog" aria-labelledby="pin-title" closedby="any">
     <h2 id="pin-title">Captain code</h2>
-    <p class="hint">Scores, the daily word, and bounty confirms use this code.</p>
+    <p class="hint">Scores, the daily word, bounty confirms, and the trophy use this code.</p>
     <form id="pin-form">
       <div class="field">
         <label for="pin">Four digits</label>
@@ -70,6 +70,24 @@
     </div>
   </dialog>
 
+  <dialog id="award-pick" aria-labelledby="award-pick-title" closedby="any">
+    <h2 id="award-pick-title">Who takes the trophy</h2>
+    <p class="hint">Pick the winning team. They get the Cup Winners 2026 trophy. The other teams get a participation badge.</p>
+    <div id="award-picks" class="award-picks"></div>
+    <form method="dialog">
+      <button class="ghost" value="close" autofocus>Close</button>
+    </form>
+  </dialog>
+
+  <dialog id="award-dialog" aria-labelledby="award-dialog-title" closedby="any">
+    <h2 id="award-dialog-title">The awards</h2>
+    <p id="award-dialog-lead"></p>
+    <div id="award-dialog-list"></div>
+    <form method="dialog">
+      <button class="ghost" value="close" autofocus>Close</button>
+    </form>
+  </dialog>
+
   <dialog id="import-dialog" aria-labelledby="import-title">
     <h2 id="import-title">Replace the shared board?</h2>
     <p class="hint">Every phone on this link will show this file. Photos stay on this phone.</p>
@@ -81,6 +99,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="js/app.js?v=11"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

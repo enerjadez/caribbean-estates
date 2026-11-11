@@ -1,7 +1,7 @@
 import { teams, notes, poses, bounties, games, groups, players, teamById, gameById } from "./house.js";
 import { wordForDate } from "./words.js";
 import { rankEntries, formatPoints } from "./score.js";
-import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js";
+import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=12";
 import { pullBoard, pushBoard } from "./cloud.js";
 
 const PIN = "0000";
@@ -11,7 +11,6 @@ let state = loadState();
 let base = sharedBoard(state);
 let captainWait = null;
 let pendingImport = null;
-let cupStill = false;
 let houseOpen = false;
 let painted = false;
 let publishing = false;
@@ -198,7 +197,8 @@ function homeHtml() {
   const bestSpice = spice[ordered[0].id];
   const holders = ordered.filter((team) => cup[team.id] === bestCup && spice[team.id] === bestSpice);
   const maxCup = Math.max(0, ...teams.map((team) => cup[team.id]));
-  let leader = "The cup is empty. The first game fills it.";
+  const award = currentAward();
+  let leader = "";
   if (bestCup > 0 && holders.length === 1) leader = `${holders[0].name} holds the cup.`;
   if (bestCup > 0 && holders.length > 1) leader = `${holders.map((team) => team.name).join(" and ")} share the cup.`;
   const liquids = teams.map((team) => {
@@ -210,6 +210,8 @@ function homeHtml() {
     const holding = bestCup > 0 && holders.some((holder) => holder.id === team.id);
     const place = bestCup === 0 ? "—" : String(ordered.findIndex((item) => cup[item.id] === cup[team.id] && spice[item.id] === spice[team.id]) + 1);
     const ribbon = !holding ? "" : holders.length > 1 ? "Shares the cup" : "Holds the cup";
+    const file = award ? awardFile(team, award.winner) : null;
+    const download = file ? `<a class="award-dl" href="${file.href}" download="${esc(file.download)}">${file.label}</a>` : "";
     return `
       <div class="crest-tilt">
         <article class="crest${holding ? " is-holding" : ""}" style="--c:${team.colour};--ink:${team.ink}">
@@ -225,6 +227,7 @@ function homeHtml() {
           <div>
             <p class="scoreline"><b>${formatPoints(cup[team.id])}</b> cup · ${formatPoints(spice[team.id])} spice</p>
             <ol class="roster">${team.players.map((player) => `<li>${esc(player.name)}</li>`).join("")}</ol>
+            ${download}
           </div>
         </article>
       </div>`;
@@ -262,16 +265,15 @@ function homeHtml() {
       </div>
     </div>`).join("");
   return `
-    <section class="hero${cupStill ? " is-still" : ""}">
+    <section class="hero">
       <img class="hero-photo" src="assets/veranda.jpg" alt="" width="1280" height="720" fetchpriority="high">
       <div class="hero-veil">
         <p class="kicker">Port Edward · ${esc(prettyDate(date))}</p>
         <h2>The Cup</h2>
-        <p class="leader-line">${esc(leader)}</p>
-        <p class="live-note">One link. Every phone sees this cup.</p>
+        ${leader ? `<p class="leader-line">${esc(leader)}</p>` : ""}
+        <p class="prize-note">At the end of this tournament the winning team gets a Cup Winners 2026 trophy. Every other team gets a participation badge.</p>
         <div class="cup-scene">
           <div class="motes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <button type="button" class="ghost" id="cup-pause">${cupStill ? "Turn the cup" : "Pause the cup"}</button>
           <div class="cup-rig" aria-hidden="true">
             <div class="bowl"><div class="liquids">${liquids}</div></div>
             <div class="stem"></div>
@@ -290,6 +292,10 @@ function homeHtml() {
     </section>
     <h2 id="teams-title" class="section-title">The teams</h2>
     <section class="crest-grid" aria-labelledby="teams-title">${cards}</section>
+    <div class="award-actions">
+      ${award ? `<p>${esc(award.team.name)} takes the Cup Winners 2026 trophy.</p><button type="button" class="gold" id="award-open">See the awards</button>` : `<p class="hint">The captain uses the code to end it.</p>`}
+      <button type="button" class="ghost" id="award-end">${award ? "Choose a different winner" : "End the tournament"}</button>
+    </div>
     <h2 id="open-title" class="section-title">Today</h2>
     <section class="lanterns" aria-labelledby="open-title">
       <button class="lantern" type="button" data-tab="quests"><b>Daily word</b><span>${winner ? `${esc(winner.name)} got it` : "Still a secret"}</span></button>
@@ -478,6 +484,7 @@ function render() {
     });
     if (view.page === "games") applyFilters();
     if (view.page === "home") bindHome();
+    if (document.querySelector("#award-dialog")?.open) fillAwardRecap();
   };
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (painted && !reduce && document.startViewTransition) {
@@ -616,13 +623,11 @@ async function paintSky() {
 }
 
 function bindHome() {
-  const hero = document.querySelector(".hero");
-  const button = document.querySelector("#cup-pause");
-  button?.addEventListener("click", () => {
-    cupStill = !cupStill;
-    hero?.classList.toggle("is-still", cupStill);
-    button.textContent = cupStill ? "Turn the cup" : "Pause the cup";
+  document.querySelector("#award-end")?.addEventListener("click", async () => {
+    if (!(await ensureCaptain())) return;
+    openAwardPick();
   });
+  document.querySelector("#award-open")?.addEventListener("click", () => openAwardRecap());
   document.querySelector(".house")?.addEventListener("toggle", (event) => {
     houseOpen = event.currentTarget.open;
   });
@@ -679,7 +684,7 @@ async function writeThrough(replace) {
     applyShared(state, merged);
     base = sharedBoard(state);
     saveState(state);
-    setSync("Live for every phone on this link.");
+    setSync("Saved.");
     return true;
   } finally {
     publishing = false;
@@ -699,7 +704,7 @@ async function refresh() {
   applyShared(state, remote);
   base = sharedBoard(state);
   saveState(state);
-  setSync("Live for every phone on this link.");
+  setSync("Updated.");
   const active = document.activeElement;
   const typing = active && viewRoot.contains(active) && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName);
   if (!typing) render();
@@ -712,7 +717,7 @@ async function boot() {
     const remote = await pullBoard();
     const remoteRev = Number(remote.revision) || 0;
     const localRev = Number(state.revision) || 0;
-    const localHas = Object.keys(state.games || {}).length || (state.guesses || []).length || Object.keys(state.votes || {}).length;
+    const localHas = Object.keys(state.games || {}).length || (state.guesses || []).length || Object.keys(state.votes || {}).length || state.award;
     if (remoteRev > localRev && localHas && !state.updatedAt) {
       applyShared(state, mergeBoards(remote, sharedBoard(state), remote));
       base = remote;
@@ -723,14 +728,14 @@ async function boot() {
       applyShared(state, remote);
       base = sharedBoard(state);
       saveState(state);
-      setSync("Live for every phone on this link.");
+      setSync("Updated.");
       render();
     } else if (localRev > remoteRev) {
       base = remote;
       setSync("This phone is ahead. A captain save shares it.");
     } else {
       base = sharedBoard(state);
-      setSync("Live for every phone on this link.");
+      setSync("");
     }
   } catch {
     setSync("The shared link is quiet. Showing this phone.");
@@ -839,6 +844,82 @@ pinDialog.addEventListener("close", () => {
   captainWait = null;
   pinDialog.returnValue = "";
 });
+
+function currentAward() {
+  const team = teamById(state.award?.winner);
+  if (!team) return null;
+  return { winner: team.id, at: state.award.at || null, team };
+}
+
+function awardFile(team, winnerId) {
+  const win = team.id === winnerId;
+  return {
+    href: `assets/awards/${team.id}-${win ? "winner" : "play"}.png`,
+    download: win ? `${team.name} Cup Winners 2026.png` : `${team.name} participation 2026.png`,
+    label: win ? "Download the trophy" : "Download the badge",
+    kind: win ? "Cup Winners 2026" : "Participation"
+  };
+}
+
+function fillAwardRecap() {
+  const award = currentAward();
+  const dialog = document.querySelector("#award-dialog");
+  if (!award) {
+    if (dialog?.open) dialog.close();
+    return;
+  }
+  document.querySelector("#award-dialog-lead").textContent = `${award.team.name} takes the Cup Winners 2026 trophy. Every other team takes a participation badge.`;
+  const list = document.querySelector("#award-dialog-list");
+  list.replaceChildren();
+  const ordered = [award.team, ...teams.filter((team) => team.id !== award.winner)];
+  for (const team of ordered) {
+    const file = awardFile(team, award.winner);
+    const row = document.createElement("div");
+    row.className = "award-row";
+    const name = document.createElement("p");
+    const strong = document.createElement("b");
+    strong.textContent = team.name;
+    name.append(strong, document.createTextNode(` · ${file.kind}`));
+    const link = document.createElement("a");
+    link.className = "award-dl";
+    link.href = file.href;
+    link.download = file.download;
+    link.textContent = file.label;
+    row.append(name, link);
+    list.append(row);
+  }
+}
+
+function openAwardRecap() {
+  const pick = document.querySelector("#award-pick");
+  if (pick?.open) pick.close();
+  fillAwardRecap();
+  const dialog = document.querySelector("#award-dialog");
+  if (currentAward() && dialog && !dialog.open) dialog.showModal();
+}
+
+function openAwardPick() {
+  const box = document.querySelector("#award-picks");
+  box.replaceChildren();
+  for (const team of teams) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "award-pick";
+    button.style.setProperty("--c", team.colour);
+    button.style.setProperty("--ink", team.ink);
+    button.textContent = team.name;
+    button.addEventListener("click", () => {
+      document.querySelector("#award-pick")?.close();
+      state.award = { winner: team.id, at: new Date().toISOString() };
+      saveState(state);
+      publish();
+      render();
+      openAwardRecap();
+    });
+    box.append(button);
+  }
+  document.querySelector("#award-pick")?.showModal();
+}
 
 function openCrest(teamId) {
   const team = teamById(teamId);

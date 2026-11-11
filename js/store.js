@@ -9,9 +9,17 @@ export function emptyState() {
     pose: {},
     bounties: {},
     votes: {},
+    award: null,
     revision: 0,
     updatedAt: null
   };
+}
+
+function cleanAward(award) {
+  if (!award || typeof award.winner !== "string") return null;
+  const winner = award.winner.trim();
+  if (!winner) return null;
+  return { winner, at: typeof award.at === "string" ? award.at : null };
 }
 
 export function loadState() {
@@ -24,6 +32,7 @@ export function loadState() {
       ...parsed,
       word: { ...emptyState().word, ...(parsed.word || {}) },
       votes: { ...(parsed.votes || {}) },
+      award: cleanAward(parsed.award),
       revision: Number(parsed.revision) || 0,
       updatedAt: parsed.updatedAt || null
     };
@@ -56,6 +65,7 @@ export function sharedBoard(state) {
     pose: state.pose || {},
     bounties,
     votes: state.votes || {},
+    award: cleanAward(state.award),
     revision: Number(state.revision) || 0,
     updatedAt: state.updatedAt || null
   });
@@ -80,6 +90,7 @@ export function applyShared(state, board) {
   state.guesses = [...(board.guesses || [])];
   state.pose = board.pose || {};
   state.votes = { ...(board.votes || {}) };
+  state.award = cleanAward(board.award);
   state.bounties = {};
   for (const [id, row] of Object.entries(board.bounties || {})) {
     state.bounties[id] = {};
@@ -147,6 +158,7 @@ export function mergeBoards(remote, local, base) {
     pose: mergeDeep(safeRemote.pose, safeLocal.pose, safeBase.pose),
     bounties: mergeDeep(safeRemote.bounties, safeLocal.bounties, safeBase.bounties),
     votes: mergeDeep(safeRemote.votes, safeLocal.votes, safeBase.votes),
+    award: changed(safeLocal.award, safeBase.award) ? cleanAward(safeLocal.award) : cleanAward(safeRemote.award),
     revision: Number(safeRemote.revision) || 0,
     updatedAt: safeRemote.updatedAt || null
   };
