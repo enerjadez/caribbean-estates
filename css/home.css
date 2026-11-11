@@ -238,6 +238,7 @@ body.at-home .wrap {
 
 .crest-open img {
   width: 100%;
+  height: auto;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 18px;
@@ -306,22 +307,56 @@ body.at-home .wrap {
 }
 
 @media (max-width: 520px) {
-  .crest:has(> .crest-open) {
-    grid-template-columns: 112px minmax(0, 1fr);
-    column-gap: 12px;
-    align-items: center;
+  .crest {
+    gap: 6px;
+    padding: 0 0 10px;
+    overflow: hidden;
   }
 
-  .crest:has(> .crest-open) > .crest-open {
-    grid-row: span 3;
-    width: 112px;
+  .crest-open,
+  .crest-open img {
+    border-radius: 0;
   }
 
-  .crest:has(> .crest-open) > .crest-open img {
-    width: 112px;
-    height: 148px;
-    aspect-ratio: auto;
+  .crest hgroup,
+  .crest > div {
+    padding: 0 12px;
   }
+
+  .crest .place {
+    font-size: 20px;
+  }
+
+  .crest h3 {
+    font-size: 17px;
+    text-wrap: balance;
+  }
+
+  .crest .ribbon {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+
+  .crest .scoreline {
+    font-size: 12px;
+  }
+
+  .crest .scoreline b {
+    font-size: 15px;
+  }
+
+  .crest .roster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 8px;
+    margin: 2px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .crest .roster li { margin: 0; }
 }
 
 #crest-dialog[open] {
