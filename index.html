@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#071510">
+  <title>Caribbean Estates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css?v=2">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1>Caribbean Estates<small>Port Edward · 23–26 Dec</small></h1>
+      <button class="ghost" id="captain-btn" type="button">Captain</button>
+    </header>
+    <nav class="nav" aria-label="Sections">
+      <button type="button" data-tab="home">Home</button>
+      <button type="button" data-tab="games">Games</button>
+      <button type="button" data-tab="quests">Quests</button>
+    </nav>
+    <main id="view"></main>
+  </div>
+
+  <dialog id="pin-dialog" aria-labelledby="pin-title" closedby="any">
+    <h2 id="pin-title">Captain code</h2>
+    <p class="hint">Scores, the daily word, and bounty confirms use this code.</p>
+    <form id="pin-form">
+      <div class="field">
+        <label for="pin">Four digits</label>
+        <input id="pin" name="pin" inputmode="numeric" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="4" autofocus>
+      </div>
+      <p id="pin-error" class="pin-error" role="alert" hidden></p>
+      <div class="actions">
+        <button class="gold" type="submit">Unlock</button>
+        <button class="ghost" id="pin-cancel" type="button">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="import-dialog" aria-labelledby="import-title">
+    <h2 id="import-title">Replace this phone's board?</h2>
+    <p class="hint">The scores and photos on this phone will be replaced by the file.</p>
+    <form method="dialog">
+      <div class="actions">
+        <button class="ghost" value="cancel" autofocus>Keep this board</button>
+        <button class="gold" value="replace">Replace</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="js/app.js?v=2"></script>
+</body>
+</html>
