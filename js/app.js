@@ -1,11 +1,11 @@
 import { teams, poses, bounties, games, groups, players, teamById, gameById } from "./house.js?v=13";
 import { wordForDate } from "./words.js";
 import { rankEntries, formatPoints } from "./score.js";
-import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=13";
+import { loadState, saveState, emptyState, sharedBoard, applyShared, mergeBoards } from "./store.js?v=14";
 import { pullBoard, pushBoard } from "./cloud.js";
 
 const PIN = "0000";
-const view = { page: "home", gameId: null, group: "All", query: "", voter: null, reading: null, poster: "" };
+const view = { page: "home", gameId: null, group: "All", query: "", voter: null, reading: null, poster: "", letterDraft: "", letterStatus: "", dropping: false };
 const drafts = { games: {}, spirit: null, pose: {} };
 let state = loadState();
 let base = sharedBoard(state);
@@ -182,6 +182,31 @@ function castVote(gameId) {
   if (document.querySelector("#vote-dialog")?.open) fillVoteDialog(gameId);
 }
 
+function lettersHtml() {
+  const letters = [...(state.letters || [])].sort((a, b) => (b.at || 0) - (a.at || 0));
+  const items = letters.length
+    ? `<ul class="letter-list">${letters.map((letter) => `<li>${esc(letter.text)}</li>`).join("")}</ul>`
+    : `<p class="hint">The box is empty.</p>`;
+  return `
+    <section class="letters" aria-labelledby="letters-title">
+      <h2 id="letters-title" class="section-title">Letter box</h2>
+      <form id="letter-form" aria-labelledby="letters-title">
+        <div class="field">
+          <label for="letter-text">An idea</label>
+          <textarea id="letter-text" name="idea" maxlength="180" required aria-describedby="letter-help">${esc(view.letterDraft || "")}</textarea>
+          <p id="letter-help" class="hint">No name is saved. Up to 180 characters. Everyone on this link can read it.</p>
+        </div>
+        <div class="letter-trap" aria-hidden="true">
+          <label for="letter-company">Leave this empty</label>
+          <input id="letter-company" name="company" tabindex="-1" autocomplete="off">
+        </div>
+        <button class="gold" type="submit">Drop it in</button>
+        <p id="letter-status" class="hint" role="status">${esc(view.letterStatus || "")}</p>
+      </form>
+      ${items}
+    </section>`;
+}
+
 function homeHtml() {
   const date = todayKey();
   const cup = cupTotals();
@@ -190,15 +215,12 @@ function homeHtml() {
   const bestCup = cup[ordered[0].id];
   const bestSpice = spice[ordered[0].id];
   const holders = ordered.filter((team) => cup[team.id] === bestCup && spice[team.id] === bestSpice);
-  const maxCup = Math.max(0, ...teams.map((team) => cup[team.id]));
   const award = currentAward();
   let leader = "";
   if (bestCup > 0 && holders.length === 1) leader = `${holders[0].name} holds the cup.`;
   if (bestCup > 0 && holders.length > 1) leader = `${holders.map((team) => team.name).join(" and ")} share the cup.`;
-  const liquids = teams.map((team) => {
-    const height = maxCup === 0 ? 0 : Math.round((cup[team.id] / maxCup) * 100);
-    return `<i class="liquid" style="--h:${height}%;--liquid:${team.colour}"></i>`;
-  }).join("");
+  const exampleHeights = [86, 58, 72, 44];
+  const liquids = teams.map((team, index) => `<i class="liquid" style="--h:${exampleHeights[index]}%;--liquid:${team.colour};--i:${index}"></i>`).join("");
   const legend = teams.map((team) => `<li><i class="swatch" style="background:${team.colour}"></i>${esc(team.name)} ${formatPoints(cup[team.id])}</li>`).join("");
   const cards = ordered.map((team) => {
     const holding = bestCup > 0 && holders.some((holder) => holder.id === team.id);
@@ -274,6 +296,7 @@ function homeHtml() {
             <div class="foot"></div>
           </div>
         </div>
+        <button type="button" class="gold cup-play" id="cup-play">Play</button>
         <ul class="cup-legend">${legend}</ul>
         <p class="sky" id="sky"><span class="sky-status" role="status">Coast…</span></p>
       </div>
@@ -292,7 +315,8 @@ function homeHtml() {
       <div class="vote-grid">${voteGrid}</div>
       <h3 id="fav-title">Favourites</h3>
       <div aria-labelledby="fav-title">${pollHtml}</div>
-    </section>`;
+    </section>
+    ${lettersHtml()}`;
 }
 
 function gamesHtml() {
@@ -597,7 +621,7 @@ function enlivenCards() {
     for (const card of document.querySelectorAll(".crest")) {
       const rect = card.getBoundingClientRect();
       const delta = Math.max(-1, Math.min(1, (rect.top + rect.height * 0.35 - mid) / window.innerHeight));
-      card.style.transform = `rotateX(${(8 - delta * 7).toFixed(2)}deg) rotateY(${(-11 + delta * 5).toFixed(2)}deg)`;
+      card.style.transform = `rotateX(${(14 - delta * 11).toFixed(2)}deg) rotateY(${(-18 + delta * 9).toFixed(2)}deg)`;
       const art = card.querySelector("img");
       if (art) art.style.translate = `0 ${(delta * -16).toFixed(1)}px`;
     }
@@ -608,7 +632,28 @@ function enlivenCards() {
   place();
 }
 
+let cupTimer = 0;
+
+function playCup() {
+  const scene = document.querySelector(".cup-scene");
+  if (!scene || scene.classList.contains("is-playing")) return;
+  window.clearTimeout(cupTimer);
+  scene.classList.remove("is-shown", "is-playing");
+  void scene.offsetWidth;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    scene.classList.add("is-shown");
+    return;
+  }
+  scene.classList.add("is-playing");
+  cupTimer = window.setTimeout(() => {
+    if (!scene.isConnected) return;
+    scene.classList.remove("is-playing");
+    scene.classList.add("is-shown");
+  }, 1700);
+}
+
 function bindHome() {
+  document.querySelector("#cup-play")?.addEventListener("click", playCup);
   document.querySelector("#award-end")?.addEventListener("click", async () => {
     if (!(await ensureCaptain())) return;
     openAwardPick();
@@ -626,8 +671,8 @@ function bindHome() {
     const rect = card.getBoundingClientRect();
     const px = (event.clientX - rect.left) / rect.width - 0.5;
     const py = (event.clientY - rect.top) / rect.height - 0.5;
-    card.style.setProperty("--ry", `${(px * 14).toFixed(2)}deg`);
-    card.style.setProperty("--rx", `${(-py * 10).toFixed(2)}deg`);
+    card.style.setProperty("--ry", `${(-16 + px * 18).toFixed(2)}deg`);
+    card.style.setProperty("--rx", `${(12 + -py * 14).toFixed(2)}deg`);
   });
   grid.addEventListener("pointerleave", () => {
     grid.querySelectorAll(".crest").forEach((card) => {
@@ -701,7 +746,7 @@ async function boot() {
     const remote = await pullBoard();
     const remoteRev = Number(remote.revision) || 0;
     const localRev = Number(state.revision) || 0;
-    const localHas = Object.keys(state.games || {}).length || (state.guesses || []).length || Object.keys(state.votes || {}).length || state.award;
+    const localHas = Object.keys(state.games || {}).length || (state.guesses || []).length || Object.keys(state.votes || {}).length || (state.letters || []).length || state.award;
     if (remoteRev > localRev && localHas && !state.updatedAt) {
       applyShared(state, mergeBoards(remote, sharedBoard(state), remote));
       base = remote;
@@ -1082,6 +1127,11 @@ viewRoot.addEventListener("input", (event) => {
     applyFilters();
     return;
   }
+  if (event.target.id === "letter-text") {
+    view.letterDraft = event.target.value;
+    event.target.setCustomValidity("");
+    return;
+  }
   const raw = event.target.dataset.raw;
   if (raw && view.gameId) {
     drafts.games[view.gameId][raw] = event.target.value;
@@ -1102,6 +1152,41 @@ viewRoot.addEventListener("submit", async (event) => {
   const form = event.target;
   if (form.id === "game-find") {
     event.preventDefault();
+    return;
+  }
+  if (form.id === "letter-form") {
+    event.preventDefault();
+    if (view.dropping) return;
+    const field = form.querySelector("#letter-text");
+    const trap = String(new FormData(form).get("company") || "").trim();
+    const text = String(new FormData(form).get("idea") || "").replace(/\s+/g, " ").trim();
+    if (trap) return;
+    if (!text) {
+      field.setCustomValidity("Write an idea first.");
+      field.reportValidity();
+      field.focus();
+      return;
+    }
+    field.setCustomValidity("");
+    view.dropping = true;
+    const submit = form.querySelector("button[type=submit]");
+    if (submit) submit.disabled = true;
+    state.letters = [...(state.letters || []), {
+      id: (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      text: text.slice(0, 180),
+      at: Date.now()
+    }];
+    view.letterDraft = "";
+    view.letterStatus = "In the box.";
+    saveState(state);
+    render();
+    const saved = await publish();
+    view.letterStatus = saved
+      ? "In the box. Everyone on the link can read it."
+      : "In the box on this phone. The shared link did not update.";
+    view.dropping = false;
+    const typing = document.activeElement && viewRoot.contains(document.activeElement) && document.activeElement.tagName === "TEXTAREA";
+    if (!typing) render();
     return;
   }
   if (form.id === "score-form") {

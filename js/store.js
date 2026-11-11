@@ -10,6 +10,7 @@ export function emptyState() {
     bounties: {},
     votes: {},
     questNotes: {},
+    letters: [],
     award: null,
     revision: 0,
     updatedAt: null
@@ -37,6 +38,19 @@ function cleanNotes(notes) {
   return out;
 }
 
+function cleanLetters(list) {
+  const out = [];
+  const seen = new Set();
+  for (const letter of list || []) {
+    const text = String(letter?.text || "").replace(/\s+/g, " ").trim().slice(0, 180);
+    const id = String(letter?.id || "").trim().slice(0, 80);
+    if (!text || !id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, text, at: Number(letter.at) || 0 });
+  }
+  return out.sort((a, b) => a.at - b.at).slice(-40);
+}
+
 function cleanAward(award) {
   if (!award || typeof award.winner !== "string") return null;
   const winner = award.winner.trim();
@@ -55,6 +69,7 @@ export function loadState() {
       word: { ...emptyState().word, ...(parsed.word || {}) },
       votes: { ...(parsed.votes || {}) },
       questNotes: cleanNotes(parsed.questNotes),
+      letters: cleanLetters(parsed.letters),
       award: cleanAward(parsed.award),
       revision: Number(parsed.revision) || 0,
       updatedAt: parsed.updatedAt || null
@@ -94,6 +109,7 @@ export function sharedBoard(state) {
     bounties,
     votes: state.votes || {},
     questNotes: cleanNotes(state.questNotes),
+    letters: cleanLetters(state.letters),
     award: cleanAward(state.award),
     revision: Number(state.revision) || 0,
     updatedAt: state.updatedAt || null
@@ -121,6 +137,7 @@ export function applyShared(state, board) {
   state.pose = board.pose || {};
   state.votes = { ...(board.votes || {}) };
   state.questNotes = cleanNotes(board.questNotes);
+  state.letters = cleanLetters(board.letters);
   state.award = cleanAward(board.award);
   state.bounties = {};
   for (const [id, row] of Object.entries(board.bounties || {})) {
@@ -169,6 +186,15 @@ function mergeDeep(remote = {}, local = {}, base = {}) {
   return out;
 }
 
+function mergeLetterLists(remote = [], local = []) {
+  const map = new Map();
+  for (const letter of [...(remote || []), ...(local || [])]) {
+    const [clean] = cleanLetters([letter]);
+    if (clean) map.set(clean.id, clean);
+  }
+  return cleanLetters([...map.values()]);
+}
+
 function mergeNoteLists(remote = [], local = []) {
   const map = new Map();
   for (const note of [...(remote || []), ...(local || [])]) {
@@ -214,6 +240,7 @@ export function mergeBoards(remote, local, base) {
     bounties: mergeDeep(safeRemote.bounties, safeLocal.bounties, safeBase.bounties),
     votes: mergeDeep(safeRemote.votes, safeLocal.votes, safeBase.votes),
     questNotes: mergeNoteMap(safeRemote.questNotes, safeLocal.questNotes),
+    letters: mergeLetterLists(safeRemote.letters, safeLocal.letters),
     award: changed(safeLocal.award, safeBase.award) ? cleanAward(safeLocal.award) : cleanAward(safeRemote.award),
     revision: Number(safeRemote.revision) || 0,
     updatedAt: safeRemote.updatedAt || null
